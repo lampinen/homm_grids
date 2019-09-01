@@ -459,6 +459,9 @@ class Environment(object):
         done = self._game.game_over 
         return obs, reward, done
 
+    def sample_action(self):
+        return np.random.randint(self.num_actions)
+
     def __str__(self):
         return str(self.game_def)
 
@@ -473,9 +476,6 @@ def main(argv=()):
         obs, r, done = env.step(i)
         plot.imshow(obs)
         plot.savefig("%i.png" % i)
-    exit()
-
-
 
     for game_type in ["shooter", "sequence_imitation", "pick_up"]:
         game = make_game(game_type, "red", "blue")
