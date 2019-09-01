@@ -13,7 +13,13 @@ from pycolab import human_ui
 from pycolab import things as plab_things
 from pycolab.prefab_parts import sprites as prefab_sprites
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plot
+
 GRID_SIZE = 6  # should be even
+SCROLL_SIZE = 2 * GRID_SIZE + 1
+UPSAMPLE_SIZE = 7
 
 PICK_UP_NUM_OBJECTS_PER = 4
 SHOOTER_NUM_OBJECTS_PER = 4
@@ -26,7 +32,7 @@ AGENT_CHAR = 'A'
 WALL_CHAR = '#'
 
 letters = [chr(i) for i in range(97, 97 + 26)]
-base_colours = {
+BASE_COLOURS = {
     "red": (1., 0., 0.),
     "green": (0., 1., 0.),
     "blue": (0., 0., 1.),
@@ -35,16 +41,18 @@ base_colours = {
     "teal": (0., 1., 1.),
 }
 
-base_objects = ["square", "diamond", "triangle"]
+BASE_SHAPES = ["square", "diamond", "triangle"]
 
-objects = {}
+AGENT_SHAPE = "triangle"
+
+OBJECTS = {}
 i = 0
-for o in base_objects:
-    for c, c_vec in base_colours.items():
-        objects[c + "_" + o] = {"char": letters[i],
+for o in BASE_SHAPES:
+    for c, c_vec in BASE_COLOURS.items():
+        OBJECTS[c + "_" + o] = {"char": letters[i],
                                 "color": c_vec} 
         i += 1
-COLOURS = {d["char"]: d["color"] for d in objects.values()} 
+COLOURS = {d["char"]: d["color"] for d in OBJECTS.values()} 
 
 COLOURS.update({
     BG_CHAR: (0, 0, 0), 
@@ -52,10 +60,10 @@ COLOURS.update({
     WALL_CHAR: (0.5, 0.5, 0.5),
     })
 
-print(COLOURS)
+META_MAPPINGS = ["switched_colors", "switched_left_right"]
 
-def make_game(game_type, good_color, bad_color, losing=False):
-    if losing:
+def make_game(game_type, good_color, bad_color, switched_colors=False):
+    if switched_colors:
         good_color, bad_color = bad_color, good_color  # switcheroo
 
     these_sprites = {}
@@ -66,8 +74,8 @@ def make_game(game_type, good_color, bad_color, losing=False):
         good_obj = good_color + "_" + shape 
         bad_obj = bad_color + "_" + shape 
 
-        good_char = objects[good_obj]["char"] 
-        bad_char = objects[bad_obj]["char"] 
+        good_char = OBJECTS[good_obj]["char"] 
+        bad_char = OBJECTS[bad_obj]["char"] 
 
         these_drapes.update(
             {good_char: ascii_art.Partial(ValueDrape, value=1.),
@@ -78,8 +86,8 @@ def make_game(game_type, good_color, bad_color, losing=False):
         good_obj = good_color + "_" + shape 
         bad_obj = bad_color + "_" + shape 
 
-        good_char = objects[good_obj]["char"] 
-        bad_char = objects[bad_obj]["char"] 
+        good_char = OBJECTS[good_obj]["char"] 
+        bad_char = OBJECTS[bad_obj]["char"] 
 
         these_drapes.update(
             {good_char: ascii_art.Partial(ShootableDrape, value=1.),
@@ -90,8 +98,8 @@ def make_game(game_type, good_color, bad_color, losing=False):
         good_obj = good_color + "_" + shape 
         bad_obj = bad_color + "_" + shape 
 
-        good_char = objects[good_obj]["char"] 
-        bad_char = objects[bad_obj]["char"] 
+        good_char = OBJECTS[good_obj]["char"] 
+        bad_char = OBJECTS[bad_obj]["char"] 
 
         these_sprites.update(
             {good_char: ascii_art.Partial(DancerSprite, 
@@ -321,12 +329,153 @@ def curse_color(c):
     return tuple(int(999 * x) for x in c)
 
 
-def main(argv=()):
+class Renderer(object):
+    """Renders an observation into an RGB image"""
+    def __init__(self, object_dict, scroll_size=SCROLL_SIZE,
+                 upsample_size=UPSAMPLE_SIZE, agent_shape=AGENT_SHAPE): 
 
-    scroll_size = 2 * GRID_SIZE + 1
-    cropper = cropping.ScrollingCropper(
-        rows=scroll_size, cols=scroll_size, to_track=['A'], pad_char=' ',
-        scroll_margins=(None, None))
+        cropper = cropping.ScrollingCropper(
+            rows=scroll_size, cols=scroll_size, to_track=[AGENT_CHAR],
+            pad_char=BG_CHAR, scroll_margins=(None, None))
+        self.cropper = cropper
+        self.upsample_size = upsample_size 
+        self.scroll_size = scroll_size
+        ones_square = np.ones([upsample_size, upsample_size], np.float32)
+        agent_shape = self._render_plain_shape(agent_shape)
+        self.decoder_dict = {
+            ord(WALL_CHAR): ones_square[:, :, None] * np.array(
+                COLOURS[WALL_CHAR])[None, None, :],
+            ord(AGENT_CHAR): agent_shape[:, :, None] * np.array(
+                COLOURS[AGENT_CHAR])[None, None, :],
+        }
+        self.bg_ord = ord(BG_CHAR)
+        self.agent_ord = ord(AGENT_CHAR)
+        for name, properties in object_dict.items():
+            _, shape_name = name.split("_")
+            raw_shape = self._render_plain_shape(shape_name)
+            raw_color = np.array(properties["color"], np.float32)
+            this_image = raw_shape[:, :, None] * raw_color[None, None, :] 
+            self.decoder_dict[ord(properties["char"])] = this_image
+
+    def _render_plain_shape(self, name):
+        """Shape without color dimension"""
+        size = self.upsample_size
+        shape = np.zeros([size, size], np.float32)
+        if name == "square":
+            shape[:, :] = 1.
+        elif name == "diamond":
+            for i in range(size):
+                for j in range(size):
+                    if np.abs(i - size // 2) + np.abs(j - size // 2) <= size // 2:
+                        shape[i, j] = 1.
+        elif name == "triangle":
+            for i in range(size):
+                for j in range(size):
+                    if np.abs(j - size // 2) - np.abs(i // 2) < 1:
+                        shape[i, j] = 1.
+        elif name == "tee":
+            shape[:, size // 2 - size // 6: size // 2 + size //6 + 1] = 1.
+            shape[0:size//3 + 1, :] = 1.
+        return shape
+
+    def __call__(self, obs, heading=0):
+        board = self.cropper.crop(obs).board
+        image = np.zeros([self.scroll_size * self.upsample_size,
+                          self.scroll_size * self.upsample_size,
+                          3], np.float32)
+        for i in range(self.scroll_size):
+            for j in range(self.scroll_size):
+                this_char = board[i, j]
+                if this_char == self.bg_ord:
+                    continue
+                this_obj = self.decoder_dict[this_char]
+                image[i * self.upsample_size:(i + 1) * self.upsample_size,
+                      j * self.upsample_size:(j + 1) * self.upsample_size,
+                      :] = this_obj
+        if heading != 0:
+            image = np.rot90(image, 4 - heading)
+            # fix agent orientation
+            middle = (self.scroll_size // 2) * self.upsample_size
+            agent = image[middle:middle + self.upsample_size,
+                          middle:middle + self.upsample_size,
+                          :]
+            image[middle:middle + self.upsample_size,
+                  middle:middle + self.upsample_size,
+                  :] = np.rot90(agent, heading) 
+        return image
+        
+
+class GameDef(object):
+    def __init__(self, game_type, good_color, bad_color, switched_colors,
+                 switched_left_right):
+        self.game_type = game_type
+        self.good_color = good_color
+        self.bad_color = bad_color
+        self.switched_colors = switched_colors
+        self.switched_left_right = switched_left_right
+
+    def __str__(self):
+        return "{}_{}_{}_{}_{}".format(self.game_type,
+                                       self.good_color,
+                                       self.bad_color,
+                                       self.switched_colors,
+                                       self.switched_left_right)
+
+
+class Environment(object):
+    """A game wrapper that handles resetting, rendering, and input flips."""
+    def __init__(self,
+                 game_def, 
+                 num_actions=5,
+                 objects=OBJECTS):
+        self.num_actions = num_actions
+        self.objects = objects
+        self.renderer = Renderer(objects)
+
+        self.game_def = game_def
+        self.switched_left_right = game_def.switched_left_right
+        action_dict = {i: i for i in range(num_actions)}
+        if self.switched_left_right:
+            action_dict[1] = 3
+            action_dict[3] = 1
+        self.action_map = lambda a: action_dict[a] 
+
+    def reset(self):
+        game_def = self.game_def
+        game = make_game(game_def.game_type,
+                         game_def.good_color,
+                         game_def.bad_color,
+                         game_def.switched_colors)
+        self._game = game
+        self.renderer.cropper.set_engine(self._game)
+
+        raw_obs, reward, _ = self._game.its_showtime()
+        obs = self.renderer(raw_obs, self._game.the_plot["heading"])
+        return obs, reward, False
+
+    def step(self, action):
+        raw_obs, reward, _ = self._game.play(self.action_map(action))
+        obs = self.renderer(raw_obs, self._game.the_plot["heading"])
+        done = self._game.game_over 
+        return obs, reward, done
+
+    def __str__(self):
+        return str(self.game_def)
+
+
+def main(argv=()):
+    np.random.seed(0)
+    env = Environment(GameDef("shooter", "red", "blue", False, False))
+    obs, r, done = env.reset()
+    plot.imshow(obs)
+    plot.savefig("first.png")
+    for i in range(5):
+        obs, r, done = env.step(i)
+        plot.imshow(obs)
+        plot.savefig("%i.png" % i)
+    exit()
+
+
 
     for game_type in ["shooter", "sequence_imitation", "pick_up"]:
         game = make_game(game_type, "red", "blue")
