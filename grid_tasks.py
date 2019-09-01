@@ -16,6 +16,7 @@ from pycolab.prefab_parts import sprites as prefab_sprites
 GRID_SIZE = 6  # should be even
 
 PICK_UP_NUM_OBJECTS_PER = 4
+SHOOTER_NUM_OBJECTS_PER = 4
 
 SEQ_IMIT_MOVE_LIMIT = 8
 SEQ_IMIT_VALUE_PER = 0.5
@@ -34,7 +35,7 @@ base_colours = {
     "teal": (0., 1., 1.),
 }
 
-base_objects = ["square", "diamond"]
+base_objects = ["square", "diamond", "triangle"]
 
 objects = {}
 i = 0
@@ -71,9 +72,20 @@ def make_game(game_type, good_color, bad_color, losing=False):
         these_drapes.update(
             {good_char: ascii_art.Partial(ValueDrape, value=1.),
              bad_char: ascii_art.Partial(ValueDrape, value=-1.)})
-        update_schedule = ["A", good_char, bad_char]
+    elif game_type == "shooter":
+        shape = "diamond"
+        num_objects = SHOOTER_NUM_OBJECTS_PER
+        good_obj = good_color + "_" + shape 
+        bad_obj = bad_color + "_" + shape 
+
+        good_char = objects[good_obj]["char"] 
+        bad_char = objects[bad_obj]["char"] 
+
+        these_drapes.update(
+            {good_char: ascii_art.Partial(ShootableDrape, value=1.),
+             bad_char: ascii_art.Partial(ShootableDrape, value=-1.)})
     elif game_type == "sequence_imitation":
-        shape = "square"
+        shape = "triangle"
         num_objects = 1
         good_obj = good_color + "_" + shape 
         bad_obj = bad_color + "_" + shape 
@@ -86,17 +98,16 @@ def make_game(game_type, good_color, bad_color, losing=False):
                                           value=SEQ_IMIT_VALUE_PER),
              bad_char: ascii_art.Partial(DancerSprite,
                                          value=-SEQ_IMIT_VALUE_PER)})
-        update_schedule = ["A", good_char, bad_char]
-
     else:
         raise ValueError("Unknown game type: {}".format(game_type))
 
+    update_schedule = [AGENT_CHAR, good_char, bad_char]
     grid = []
     grid.append(["#"] * (GRID_SIZE + 2))
     for _ in range(GRID_SIZE):
         grid.append(["#"]  + ([" "] * GRID_SIZE) + ["#"])
     grid.append(["#"] * (GRID_SIZE + 2))
-    if game_type in ["pick_up"]:
+    if game_type in ["pick_up", "shooter"]:
         locations = [(i, j) for i in range(1, GRID_SIZE + 1) for j in range(1, GRID_SIZE + 1)] 
     elif game_type == "sequence_imitation":
         quarts = [1 + GRID_SIZE // 4, GRID_SIZE - GRID_SIZE // 4]
@@ -123,6 +134,9 @@ def make_game(game_type, good_color, bad_color, losing=False):
 
     if game_type == "pick_up":
         game.the_plot["num_picked_up"] = 0
+    elif game_type == "shooter":
+        game.the_plot["num_shot"] = 0
+        game.the_plot["heading"] = 0
     elif game_type == "sequence_imitation":
         game.the_plot["good_move"] = -1  # no valid move on first turn
         game.the_plot["bad_move"] = -1
@@ -136,25 +150,77 @@ class PlayerSprite(prefab_sprites.MazeWalker):
         self.game_type = game_type
 
     def update(self, actions, board, layers, backdrop, things, the_plot):
-
-        if actions == 0:
-            self._north(board, the_plot)
-        elif actions == 1:
-            self._east(board, the_plot)
-        elif actions == 2:
-            self._south(board, the_plot)
-        elif actions == 3:
-            self._west(board, the_plot)
-        elif actions == 4:
-            self._stay(board, the_plot)
-        elif actions == 5:
+        if actions == 5:
           the_plot.terminate_episode()
+        if self.game_type == "shooter":
+            heading = the_plot["heading"]
+            if actions == 0:
+                if heading == 0:
+                    self._north(board, the_plot)
+                elif heading == 1:
+                    self._east(board, the_plot)
+                elif heading == 2:
+                    self._south(board, the_plot)
+                elif heading == 3:
+                    self._west(board, the_plot)
+            elif actions == 1:
+                the_plot["heading"] = (heading + 1) % 4
+            elif actions == 2:
+                if heading == 0:
+                    self._south(board, the_plot)
+                elif heading == 1:
+                    self._west(board, the_plot)
+                elif heading == 2:
+                    self._north(board, the_plot)
+                elif heading == 3:
+                    self._east(board, the_plot)
+            elif actions == 3:
+                the_plot["heading"] = (heading - 1) % 4
+            elif actions == 4:
+                self._shoot(heading, things, the_plot)
+
+        else:
+            if actions == 0:
+                self._north(board, the_plot)
+            elif actions == 1:
+                self._east(board, the_plot)
+            elif actions == 2:
+                self._south(board, the_plot)
+            elif actions == 3:
+                self._west(board, the_plot)
+            elif actions == 4:
+                self._stay(board, the_plot)
 
         if self.game_type == "sequence_imitation":
             if actions == the_plot["good_move"]:
                 the_plot.add_reward(the_plot["good_value"])
             elif actions == the_plot["bad_move"]:
                 the_plot.add_reward(the_plot["bad_value"])
+
+    def _shoot(self, heading, things, the_plot):
+        assert(self.game_type == "shooter")  # TODO: remove when testing is done
+        drapes = [v for (k, v) in things.items() if k != self.character]
+        pos_x, pos_y = self.position 
+        done = False
+        while (not done) and (0 < pos_x < GRID_SIZE + 1) and (0 < pos_y < GRID_SIZE + 1):
+            if heading == 0:
+                pos_x -= 1
+            elif heading == 1:
+                pos_y += 1
+            elif heading == 2:
+                pos_x += 1
+            elif heading == 3:
+                pos_y -= 1
+
+            for drape in drapes:
+                if drape.curtain[(pos_x, pos_y)]:  # we have a hit!
+                    drape.curtain[(pos_x, pos_y)] = False
+                    done = True
+                    the_plot.add_reward(drape.value)
+                    the_plot["num_shot"] += 1
+                    if the_plot["num_shot"] >= SHOOTER_NUM_OBJECTS_PER:
+                        the_plot.terminate_episode()
+                    break
 
 
 class DancerSprite(prefab_sprites.MazeWalker):
@@ -170,6 +236,8 @@ class DancerSprite(prefab_sprites.MazeWalker):
     def update(self, actions, board, layers, backdrop, things, the_plot):
         if self.num_moves >= SEQ_IMIT_MOVE_LIMIT or self.position == things[AGENT_CHAR].position: 
             the_plot.terminate_episode()
+        if actions is None:  # dummy step at start of game
+            return
         row, col = self.position
         max_offset = self.max_offset
         
@@ -209,14 +277,13 @@ class DancerSprite(prefab_sprites.MazeWalker):
         self.num_moves += 1
 
 
-
 class ValueDrape(plab_things.Drape):
     def __init__(self, curtain, character, value):
         super(ValueDrape, self).__init__(curtain, character)
         self._value = value
 
     def update(self, actions, board, layers, backdrop, things, the_plot):
-        player_position = things['A'].position
+        player_position = things[AGENT_CHAR].position
 
         if self.curtain[player_position]:
             the_plot.add_reward(self._value)
@@ -224,6 +291,30 @@ class ValueDrape(plab_things.Drape):
             the_plot["num_picked_up"] += 1
             if the_plot["num_picked_up"] == PICK_UP_NUM_OBJECTS_PER:
                 the_plot.terminate_episode()
+
+
+class ShootableDrape(plab_things.Drape):
+    def __init__(self, curtain, character, value):
+        super(ShootableDrape, self).__init__(curtain, character)
+        self._value = value
+
+    def update(self, actions, board, layers, backdrop, things, the_plot):
+        player_position = things[AGENT_CHAR].position
+
+        if self.curtain[player_position]:
+            the_plot.terminate_episode()
+
+#        if the_plot["shooting"]:
+#            player_heading = the_plot["heading"]
+
+#            the_plot.add_reward(self._value)
+#            self.curtain[player_position] = False
+#            the_plot["num_picked_up"] += 1
+#            if the_plot["num_picked_up"] == PICK_UP_NUM_OBJECTS_PER:
+
+    @property
+    def value(self):
+        return self._value
 
 
 def curse_color(c):
@@ -237,13 +328,13 @@ def main(argv=()):
         rows=scroll_size, cols=scroll_size, to_track=['A'], pad_char=' ',
         scroll_margins=(None, None))
 
-    for game_type in ["sequence_imitation", "pick_up"]:
+    for game_type in ["shooter", "sequence_imitation", "pick_up"]:
         game = make_game(game_type, "red", "blue")
 
         ui = human_ui.CursesUi(
             keys_to_actions={curses.KEY_UP: 0, curses.KEY_RIGHT: 1,
                              curses.KEY_DOWN: 2, curses.KEY_LEFT: 3,
-                             -1: 4,
+                             ' ': 4,
                              'q': 5, 'Q': 5},
             delay=None, colour_fg={k: curse_color(v) for k, v in COLOURS.items()},
             colour_bg={AGENT_CHAR: (0, 0, 0)},
