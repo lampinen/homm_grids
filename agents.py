@@ -58,50 +58,34 @@ class random_agent(object):
         if environment_name not in self.memory_buffers:
             self.memory_buffers[environment_name] = memory_buffer()
         
-        return (str(environment_def) 
+        return (str(environment_def),
                 self.memory_buffers[environment_name])
 
     def play(self, environment, max_steps=1e5, remember=True,
              cached=False, from_embedding=None):
         (environment_name,
          memory_buffer) = self._environment_lookup(environment)
-        num_frames_per_step = self.num_frames_per_step
         step = 0
         done = False
         total_return = 0.
-        obs = np.zeros([210, 160, num_frames_per_step, 3])
-        this_obs, _, _ = environment.reset()
-        prev_obs = np.zeros([210, 160, 3])
-        obs[:, :, 0, :] = this_obs
-        for i in range(1, num_frames_per_step):
-            this_obs, r, done, info = environment.step(0) # no-op
-            obs[:, :, i, :] = np.maximum(this_obs, prev_obs)
-            total_return += r
-            prev_obs = this_obs
+        obs, _, _ = environment.reset()
 
         while (not done and step < max_steps):
             step += 1
-            conditioning_obs = obs # conditioning obs is for memory, prior is 
-                                   # for perception.
-            obs = np.zeros([210, 160, num_frames_per_step, 3])
+            conditioning_obs = obs # conditioning obs is for memory
             if from_embedding is not None:
-                action = self.choose_action(environment, obs, cached=False,
-                                             from_embedding=from_embedding)
+                action = self.choose_action(environment, conditioning_obs, 
+                                            cached=False,
+                                            from_embedding=from_embedding)
             else:
-                action = self.choose_action(environment, obs, cached=cached)
+                action = self.choose_action(environment, conditioning_obs,
+                                            cached=cached)
             this_reward = 0.
-            for i in range(num_frames_per_step):
-                this_obs, r, done = environment.step(action)
-                obs[:, :, i, :] = np.maximum(this_obs, prev_obs)
-                this_reward += r
+            obs, r, done = environment.step(action)
+            this_reward += r
             total_return += this_reward
-            prev_obs = this_obs
 
             if remember:
-                conditioning_obs = np.expand_dims(conditioning_obs, axis=0)
-                conditioning_obs = self.sess.run(
-                    self.do_preprocessing,
-                    feed_dict={self.preprocess_images_ph: conditioning_obs})[0]
                 memory_buffer.add((conditioning_obs, 
                                    action,
                                    this_reward)) 
@@ -138,18 +122,12 @@ class random_agent(object):
         return names, steps_mean, steps_se, returns_mean, returns_se
 
 
-def _luminance(image_batch):
-    return 0.2126 * image_batch[:, :, :, :, 0] +  0.7152 * image_batch[:, :, :, :, 1] + 0.0722 * image_batch[:, :, :, :, 2]
-
-#def _luminance(image):
-#    return 0.2126 * image[:, :, 0] +  0.7152 * image[:, :, 1] + 0.0722 * image[:, :, 2]
-
 class EML_DQN_agent(random_agent):
     """Embedded Meta-Learning agent running a DQN-like algorithm."""
     def __init__(self, config, train_environments, eval_environments,
-                 name="EML_DQN_agent", num_frames_per_step=4):
+                 name="EML_DQN_agent"):
         super(EML_DQN_agent, self).__init__(
-            name=name, num_frames_per_step=num_frames_per_step)
+            name=name)
         self.config = config
         self.train_environments = train_environments
         self.eval_environments = eval_environments
@@ -167,8 +145,8 @@ class EML_DQN_agent(random_agent):
             self.meta_tasks = config["meta_tasks"]
             self.meta_pairings = generate_meta_pairings(
                 self.meta_tasks,
-                train_environment_names=[str(e) for e in self.train_environments],
-                eval_environment_names=[str(e) for e in self.eval_environments])
+                train_environment_defs=[e.game_def for e in self.train_environments],
+                eval_environment_defs=[e.game_def for e in self.eval_environments])
             self.meta_dataset_cache = {
                 mt: {"tr": None,
                      "ev": None} for mt in self.meta_tasks
@@ -270,7 +248,7 @@ class EML_DQN_agent(random_agent):
                 mh_3 = slim.fully_connected(mh_2b, num_hidden_meta,
                                             activation_fn=internal_nonlinearity)
 
-                guess_embedding = slim.fully_connected(mh_3, num_hidden_meta,
+                guess_embedding = slim.fully_connected(mh_3, config["z_dim"],
                                                        activation_fn=None)
                 return guess_embedding
 

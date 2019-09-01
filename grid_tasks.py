@@ -421,6 +421,11 @@ class GameDef(object):
                                        self.switched_colors,
                                        self.switched_left_right)
 
+    def __eq__(self, other):
+        if not isinstance(other, GameDef):
+            return False
+        return (self.game_type == other.game_type) and (self.good_color == other.good_color) and (self.bad_color == other.bad_color) and (self.switched_colors == other.switched_colors) and (self.switched_left_right == other.switched_left_right)
+
 
 class Environment(object):
     """A game wrapper that handles resetting, rendering, and input flips."""
@@ -433,6 +438,7 @@ class Environment(object):
         self.renderer = Renderer(objects)
 
         self.game_def = game_def
+        self.game_type = game_def.game_type
         self.switched_left_right = game_def.switched_left_right
         action_dict = {i: i for i in range(num_actions)}
         if self.switched_left_right:
@@ -449,13 +455,23 @@ class Environment(object):
         self._game = game
         self.renderer.cropper.set_engine(self._game)
 
-        raw_obs, reward, _ = self._game.its_showtime()
-        obs = self.renderer(raw_obs, self._game.the_plot["heading"])
+        raw_obs, _, _ = self._game.its_showtime()
+        reward = 0.
+        if self.game_type == "shooter":
+            heading = self._game.the_plot["heading"]
+        else:
+            heading = 0
+        obs = self.renderer(raw_obs, heading)
         return obs, reward, False
 
     def step(self, action):
-        raw_obs, reward, _ = self._game.play(self.action_map(action))
-        obs = self.renderer(raw_obs, self._game.the_plot["heading"])
+        raw_obs, raw_reward, _ = self._game.play(self.action_map(action))
+        reward = 0. if raw_reward is None else raw_reward
+        if self.game_type == "shooter":
+            heading = self._game.the_plot["heading"]
+        else:
+            heading = 0
+        obs = self.renderer(raw_obs, heading)
         done = self._game.game_over 
         return obs, reward, done
 
