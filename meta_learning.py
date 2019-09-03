@@ -7,12 +7,12 @@ import grid_tasks
 from agents import random_agent, EML_DQN_agent
 
 config = {
-    'z_dim': 512, # dimension of the latent embedding space Z
+    'z_dim': 256, # dimension of the latent embedding space Z
     'T_num_hidden': 128, # num hidden units in outcome (target) encoder
-    'M_num_hidden': 512, # num hidden in meta network
-    'H_num_hidden': 512, # " " " hyper network
+    'M_num_hidden': 256, # num hidden in meta network
+    'H_num_hidden': 256, # " " " hyper network
     'F_num_hidden': 128, # " " " task network that H parameterizes
-    'task_weight_weight_mult': 3.,
+    'task_weight_weight_mult': 1.,
     'F_num_hidden_layers': 3,
     'H_num_hidden_layers': 3,
     'internal_nonlinearity': tf.nn.leaky_relu,
@@ -23,7 +23,7 @@ config = {
     'meta_batch_size': 64, # how many examples the meta-net is conditioned on
                            # for base training.
     'game_types': ['pick_up', 'sequence_imitation', 'shooter'], 
-    'color_pairs': [('red', 'blue')],#, ('green', 'purple'), ('yellow', 'teal')], # good, bad
+    'color_pairs': [('red', 'blue'), ('green', 'purple'), ('yellow', 'teal')], # good, bad
     'hold_outs': ['shooter_red_blue_True_False', 'shooter_red_blue_True_True', 'shooter_green_purple_True_False', 'shooter_green_purple_True_True', 'shooter_yellow_teal_True_False', 'shooter_yellow_teal_True_True'], 
     'meta_tasks': ["switch_colors", "switch_left_right"],
     'num_epochs': 500000,
@@ -46,7 +46,7 @@ config = {
     'eval_every': 1000, # how many epochs between evals
     'update_target_network_every': 3000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids/results_6/',
+    'results_dir': 'results/results_6/',
 }
 
 def _save_config(filename, config):

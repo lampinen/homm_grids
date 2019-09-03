@@ -209,12 +209,14 @@ class EML_DQN_agent(random_agent):
             [tf.one_hot(self.action_ph, depth=config["num_actions"]),
              tf.expand_dims(self.reward_ph, axis=-1)],
             axis=-1)
-
+        
         def _outcome_encoder(outcomes, reuse=True):
             oh = outcomes
             with tf.variable_scope("outcome_enc", reuse=reuse):
-                oh = slim.fully_connected(oh, config["T_num_hidden"])
-                oh = slim.fully_connected(oh, config["z_dim"])
+                oh = slim.fully_connected(oh, config["T_num_hidden"],
+                                          activation_fn=internal_nonlinearity)
+                oh = slim.fully_connected(oh, config["z_dim"],
+                                          activation_fn=internal_nonlinearity)
             return oh
 
         
@@ -557,6 +559,7 @@ class EML_DQN_agent(random_agent):
                 [self.fed_emb_inf_output_logits, self.fed_emb_inf_output], 
                 feed_dict=feed_dict)
 
+        #print(Qs)
         action_probs = action_probs[0]
         if self.softmax_policy:
             action = np.random.choice(len(action_probs),
