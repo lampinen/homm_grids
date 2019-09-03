@@ -216,7 +216,7 @@ class EML_DQN_agent(random_agent):
                 oh = slim.fully_connected(oh, config["T_num_hidden"],
                                           activation_fn=internal_nonlinearity)
                 oh = slim.fully_connected(oh, config["z_dim"],
-                                          activation_fn=internal_nonlinearity)
+                                          activation_fn=None)
             return oh
 
         
