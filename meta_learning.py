@@ -12,40 +12,41 @@ config = {
     'M_num_hidden': 512, # num hidden in meta network
     'H_num_hidden': 512, # " " " hyper network
     'F_num_hidden': 128, # " " " task network that H parameterizes
-    'task_weight_weight_mult': 1.,
+    'task_weight_weight_mult': 3.,
     'F_num_hidden_layers': 3,
     'H_num_hidden_layers': 3,
     'internal_nonlinearity': tf.nn.leaky_relu,
+    'meta_max_pool': True, # max or average across examples
     'num_actions': 5,
     'softmax_beta': 5.,
     'discount': 0.98,
     'meta_batch_size': 64, # how many examples the meta-net is conditioned on
                            # for base training.
     'game_types': ['pick_up', 'sequence_imitation', 'shooter'], 
-    'color_pairs': [('red', 'blue'), ('green', 'purple'), ('yellow', 'teal')], # good, bad
+    'color_pairs': [('red', 'blue')],#, ('green', 'purple'), ('yellow', 'teal')], # good, bad
     'hold_outs': ['shooter_red_blue_True_False', 'shooter_red_blue_True_True', 'shooter_green_purple_True_False', 'shooter_green_purple_True_True', 'shooter_yellow_teal_True_False', 'shooter_yellow_teal_True_True'], 
-    'meta_tasks': [],
+    'meta_tasks': ["switch_colors", "switch_left_right"],
     'num_epochs': 500000,
     'play_cached': False, # if true, use a cached embedding to play 
                          # (for efficiency)
     'eval_cached': False, # use cached embedding for eval 
     'softmax_policy': False, # if true, sample actions from probs, else greedy
     'optimizer': 'RMSProp',
-    'init_lr': 3e-5,
-    'init_meta_lr': 3e-5,
+    'init_lr': 3e-6,
+    'init_meta_lr': 1e-6,
     'lr_decay': 0.9,
     'meta_lr_decay': 0.9,
     'epsilon_decrease': 0.01,
     'min_epsilon': 0.15,
-    'lr_decays_every': 500,
+    'lr_decays_every': 300,
     'min_lr': 3e-8,
     'min_meta_lr': 3e-8,
     'refresh_caches_every': 50, # how frequently to refresh the caches
     'play_every': 500, # how many epochs between plays
     'eval_every': 1000, # how many epochs between evals
-    'update_target_network_every': 1500, # how many epochs between updates to the target network
+    'update_target_network_every': 3000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids/results_0/',
+    'results_dir': '/mnt/fs4/lampinen/grids/results_6/',
 }
 
 def _save_config(filename, config):
@@ -66,7 +67,7 @@ for game_type in config["game_types"]:
                     switched_colors=switched_colors,
                     switched_left_right=switched_left_right))
 
-
+config["games"] = [str(e) for e in environment_defs]
 environments = [grid_tasks.Environment(e) for e in environment_defs]
 
 train_environments = [e for e in environments if str(e) not in config["hold_outs"]]
@@ -106,6 +107,8 @@ with open(config['results_dir'] + 'base_losses.csv', 'w', buffering=1) as fout, 
     if train_meta:
         (m_names, m_steps_mean, m_steps_se,
          m_returns_mean, m_returns_se) = my_agent.do_meta_true_eval(meta_tasks)
+        print(m_names)
+        print(m_steps_mean)
         meta_names_types = ", ".join(
             [x + res_type for res_type in ["_steps_mean", "_steps_se", "_returns_mean", "_returns_se"] for x in m_names]) 
         print(meta_names_types)

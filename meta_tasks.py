@@ -37,8 +37,8 @@ def generate_meta_pairings(meta_tasks, train_environment_defs,
         for e in train_environment_defs:
             result = mapping(e)
             if result in train_environment_defs:
-                meta_pairings[meta_task]["train"].append((e, result))
+                meta_pairings[meta_task]["train"].append((str(e), str(result)))
             elif result in eval_environment_defs:
-                meta_pairings[meta_task]["eval"].append((e, result))
+                meta_pairings[meta_task]["eval"].append((str(e), str(result)))
         
     return meta_pairings

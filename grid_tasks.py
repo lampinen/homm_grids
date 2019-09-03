@@ -432,9 +432,11 @@ class Environment(object):
     def __init__(self,
                  game_def, 
                  num_actions=5,
+                 max_steps=40,
                  objects=OBJECTS):
         self.num_actions = num_actions
         self.objects = objects
+        self.max_steps = max_steps
         self.renderer = Renderer(objects)
 
         self.game_def = game_def
@@ -454,6 +456,7 @@ class Environment(object):
                          game_def.switched_colors)
         self._game = game
         self.renderer.cropper.set_engine(self._game)
+        self.step_count = 0
 
         raw_obs, _, _ = self._game.its_showtime()
         reward = 0.
@@ -472,7 +475,8 @@ class Environment(object):
         else:
             heading = 0
         obs = self.renderer(raw_obs, heading)
-        done = self._game.game_over 
+        self.step_count += 1
+        done = self._game.game_over or self.step_count > self.max_steps 
         return obs, reward, done
 
     def sample_action(self):

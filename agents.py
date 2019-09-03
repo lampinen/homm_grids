@@ -244,7 +244,10 @@ class EML_DQN_agent(random_agent):
                                             activation_fn=internal_nonlinearity)
                 mh_2 = slim.fully_connected(mh_1, num_hidden_meta,
                                             activation_fn=internal_nonlinearity)
-                mh_2b = tf.reduce_max(mh_2, axis=0, keep_dims=True)
+                if config["meta_max_pool"]:
+                    mh_2b = tf.reduce_max(mh_2, axis=0, keep_dims=True)
+                else:
+                    mh_2b = tf.reduce_mean(mh_2, axis=0, keep_dims=True)
                 mh_3 = slim.fully_connected(mh_2b, num_hidden_meta,
                                             activation_fn=internal_nonlinearity)
 
@@ -554,7 +557,6 @@ class EML_DQN_agent(random_agent):
                 [self.fed_emb_inf_output_logits, self.fed_emb_inf_output], 
                 feed_dict=feed_dict)
 
-        #print(Qs)
         action_probs = action_probs[0]
         if self.softmax_policy:
             action = np.random.choice(len(action_probs),
