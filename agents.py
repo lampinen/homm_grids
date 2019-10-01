@@ -9,7 +9,7 @@ NUM_ACTIONS = 5
 
 class memory_buffer(object):
     """An object that holds traces, controls length, and allows samples.""" 
-    def __init__(self, max_length=5000, drop_size=500):
+    def __init__(self, max_length=1000, drop_size=100):
        self.buffer = [] 
        self.length = 0
        self.max_length = max_length
@@ -62,7 +62,7 @@ class random_agent(object):
                 self.memory_buffers[environment_name])
 
     def play(self, environment, max_steps=1e5, remember=True,
-             cached=False, from_embedding=None):
+             cached=False, from_embedding=None, print_Qs=False):
         (environment_name,
          memory_buffer) = self._environment_lookup(environment)
         step = 0
@@ -72,14 +72,16 @@ class random_agent(object):
 
         while (not done and step < max_steps):
             step += 1
-            conditioning_obs = obs # conditioning obs is for memory
+            conditioning_obs = obs 
             if from_embedding is not None:
                 action = self.choose_action(environment, conditioning_obs, 
                                             cached=False,
-                                            from_embedding=from_embedding)
+                                            from_embedding=from_embedding,
+                                            print_Qs=print_Qs)
             else:
                 action = self.choose_action(environment, conditioning_obs,
-                                            cached=cached)
+                                            cached=cached,
+                                            print_Qs=print_Qs)
             this_reward = 0.
             obs, r, done = environment.step(action)
             this_reward += r
@@ -98,7 +100,7 @@ class random_agent(object):
     def train(self, environments_to_train):
         pass
 
-    def do_eval(self, environments, num_games=1, max_steps=1e5, cached=False):
+    def do_eval(self, environments, num_games=1, max_steps=1e5, cached=False, print_Qs=False):
         names = []
         steps_mean = []
         returns_mean = []
@@ -112,7 +114,8 @@ class random_agent(object):
             for _ in range(num_games):
                 done, step, total_return = self.play(e, max_steps=max_steps, 
                                                      remember=False,
-                                                     cached=cached)
+                                                     cached=cached,
+                                                     print_Qs=print_Qs)
                 this_steps.append(step)
                 this_returns.append(total_return)
             steps_mean.append(np.mean(this_steps))
@@ -171,7 +174,7 @@ class EML_DQN_agent(random_agent):
             vh = processed_input 
             print(vh)
             with tf.variable_scope("vision", reuse=reuse):
-                for num_filt, kernel, stride in [[32, 
+                for num_filt, kernel, stride in [[64, 
                                                   grid_tasks.UPSAMPLE_SIZE,
                                                   grid_tasks.UPSAMPLE_SIZE],
                                                  [64, 4, 2],
@@ -270,7 +273,8 @@ class EML_DQN_agent(random_agent):
         self.feed_embedding_ph = tf.placeholder(tf.float32, [1, config["z_dim"]])
 
         ## Hyper: Z -> (f: Z -> Z)
-        num_hidden_hyper = config["M_num_hidden"]
+        z_dim = config["z_dim"]
+        num_hidden_hyper = config["H_num_hidden"]
         num_hidden_F = config["F_num_hidden"]
         num_task_hidden_layers = config["F_num_hidden_layers"]
         tw_range = config["task_weight_weight_mult"]/np.sqrt(
@@ -288,25 +292,25 @@ class EML_DQN_agent(random_agent):
                 hidden_weights = []
                 hidden_biases = []
 
-                task_weights = slim.fully_connected(hyper_hidden, num_hidden_F*(num_hidden_hyper +(num_task_hidden_layers-1)*num_hidden_F + num_hidden_hyper),
+                task_weights = slim.fully_connected(hyper_hidden, num_hidden_F*(z_dim +(num_task_hidden_layers-1)*num_hidden_F + z_dim),
                                                     activation_fn=None,
                                                     weights_initializer=task_weight_gen_init)
 
-                task_weights = tf.reshape(task_weights, [-1, num_hidden_F, (num_hidden_hyper + (num_task_hidden_layers-1)*num_hidden_F + num_hidden_hyper)])
-                task_biases = slim.fully_connected(hyper_hidden, num_task_hidden_layers * num_hidden_F + num_hidden_hyper,
+                task_weights = tf.reshape(task_weights, [-1, num_hidden_F, (z_dim + (num_task_hidden_layers-1)*num_hidden_F + z_dim)])
+                task_biases = slim.fully_connected(hyper_hidden, num_task_hidden_layers * num_hidden_F + z_dim,
                                                    activation_fn=None)
 
-                Wi = tf.transpose(task_weights[:, :, :num_hidden_hyper], perm=[0, 2, 1])
+                Wi = tf.transpose(task_weights[:, :, :z_dim], perm=[0, 2, 1])
                 bi = task_biases[:, :num_hidden_F]
                 hidden_weights.append(Wi)
                 hidden_biases.append(bi)
                 for i in range(1, num_task_hidden_layers):
-                    Wi = tf.transpose(task_weights[:, :, num_hidden_hyper+(i-1)*num_hidden_F:num_hidden_hyper+i*num_hidden_F], perm=[0, 2, 1])
+                    Wi = tf.transpose(task_weights[:, :, z_dim+(i-1)*num_hidden_F:z_dim+i*num_hidden_F], perm=[0, 2, 1])
                     bi = task_biases[:, num_hidden_F*i:num_hidden_F*(i+1)]
                     hidden_weights.append(Wi)
                     hidden_biases.append(bi)
-                Wfinal = task_weights[:, :, -num_hidden_hyper:]
-                bfinal = task_biases[:, -num_hidden_hyper:]
+                Wfinal = task_weights[:, :, -z_dim:]
+                bfinal = task_biases[:, -z_dim:]
 
                 for i in range(num_task_hidden_layers):
                     hidden_weights[i] = tf.squeeze(hidden_weights[i], axis=0)
@@ -448,7 +452,7 @@ class EML_DQN_agent(random_agent):
     def update_target_network(self):
         self.sess.run(self.update_target_op)
 
-    def fill_memory_buffers(self, environments, num_data_points=1000,
+    def fill_memory_buffers(self, environments, num_data_points=500,
                             random=True):
         if random:
             curr_epsilon = self.epsilon
@@ -531,7 +535,7 @@ class EML_DQN_agent(random_agent):
                 res_emb = self.task_embedding_cache[res]
                 self.meta_dataset_cache[mt]["ev"]["in"][num_train + i, :] = e_emb
 
-    def choose_action(self, environment, observation, cached=False, from_embedding=None):
+    def choose_action(self, environment, observation, cached=False, from_embedding=None, print_Qs=False):
         (environment_name,
          memory_buffer) = self._environment_lookup(environment)
         if np.random.random() < self.epsilon: 
@@ -559,7 +563,8 @@ class EML_DQN_agent(random_agent):
                 [self.fed_emb_inf_output_logits, self.fed_emb_inf_output], 
                 feed_dict=feed_dict)
 
-        #print(Qs)
+        if print_Qs:
+            print(Qs)
         action_probs = action_probs[0]
         if self.softmax_policy:
             action = np.random.choice(len(action_probs),
@@ -678,11 +683,12 @@ class EML_DQN_agent(random_agent):
         return names, steps_mean, steps_se, returns_mean, returns_se
 
     def do_eval(self, environments, num_games=10,
-                max_steps=1e5, cached=False):
+                max_steps=1e5, cached=False, print_Qs=False):
         curr_epsilon = self.epsilon
         self.epsilon = 0.
         results = super(EML_DQN_agent, self).do_eval(environments, num_games,
-                                                     max_steps, cached=cached)
+                                                     max_steps, cached=cached,
+                                                     print_Qs=print_Qs)
         self.epsilon = curr_epsilon
         return results
             
