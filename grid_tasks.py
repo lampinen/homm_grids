@@ -27,6 +27,8 @@ SHOOTER_NUM_OBJECTS_PER = 4
 SEQ_IMIT_MOVE_LIMIT = 8
 SEQ_IMIT_VALUE_PER = 0.5
 
+NEG_VALUE = -0.1
+
 BG_CHAR = ' '
 AGENT_CHAR = 'A'
 WALL_CHAR = '#'
@@ -79,7 +81,7 @@ def make_game(game_type, good_color, bad_color, switched_colors=False):
 
         these_drapes.update(
             {good_char: ascii_art.Partial(ValueDrape, value=1.),
-             bad_char: ascii_art.Partial(ValueDrape, value=-1.)})
+             bad_char: ascii_art.Partial(ValueDrape, value=NEG_VALUE)})
     elif game_type == "shooter":
         shape = "diamond"
         num_objects = SHOOTER_NUM_OBJECTS_PER
@@ -91,7 +93,7 @@ def make_game(game_type, good_color, bad_color, switched_colors=False):
 
         these_drapes.update(
             {good_char: ascii_art.Partial(ShootableDrape, value=1.),
-             bad_char: ascii_art.Partial(ShootableDrape, value=-1.)})
+             bad_char: ascii_art.Partial(ShootableDrape, value=NEG_VALUE)})
     elif game_type == "sequence_imitation":
         shape = "triangle"
         num_objects = 1
@@ -105,7 +107,7 @@ def make_game(game_type, good_color, bad_color, switched_colors=False):
             {good_char: ascii_art.Partial(DancerSprite, 
                                           value=SEQ_IMIT_VALUE_PER),
              bad_char: ascii_art.Partial(DancerSprite,
-                                         value=-SEQ_IMIT_VALUE_PER)})
+                                         value=SEQ_IMIT_VALUE_PER * NEG_VALUE)})
     else:
         raise ValueError("Unknown game type: {}".format(game_type))
 
@@ -332,7 +334,8 @@ def curse_color(c):
 class Renderer(object):
     """Renders an observation into an RGB image"""
     def __init__(self, object_dict, scroll_size=SCROLL_SIZE,
-                 upsample_size=UPSAMPLE_SIZE, agent_shape=AGENT_SHAPE): 
+                 upsample_size=UPSAMPLE_SIZE, agent_shape=AGENT_SHAPE,
+                 scale=1.): 
 
         cropper = cropping.ScrollingCropper(
             rows=scroll_size, cols=scroll_size, to_track=[AGENT_CHAR],
@@ -340,13 +343,14 @@ class Renderer(object):
         self.cropper = cropper
         self.upsample_size = upsample_size 
         self.scroll_size = scroll_size
+        self.scale = scale
         ones_square = np.ones([upsample_size, upsample_size], np.float32)
         agent_shape = self._render_plain_shape(agent_shape)
         self.decoder_dict = {
             ord(WALL_CHAR): ones_square[:, :, None] * np.array(
-                COLOURS[WALL_CHAR])[None, None, :],
+                COLOURS[WALL_CHAR])[None, None, :] * scale,
             ord(AGENT_CHAR): agent_shape[:, :, None] * np.array(
-                COLOURS[AGENT_CHAR])[None, None, :],
+                COLOURS[AGENT_CHAR])[None, None, :] * scale,
         }
         self.bg_ord = ord(BG_CHAR)
         self.agent_ord = ord(AGENT_CHAR)
@@ -355,7 +359,7 @@ class Renderer(object):
             raw_shape = self._render_plain_shape(shape_name)
             raw_color = np.array(properties["color"], np.float32)
             this_image = raw_shape[:, :, None] * raw_color[None, None, :] 
-            self.decoder_dict[ord(properties["char"])] = this_image
+            self.decoder_dict[ord(properties["char"])] = this_image * scale
 
     def _render_plain_shape(self, name):
         """Shape without color dimension"""
