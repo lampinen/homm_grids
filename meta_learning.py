@@ -11,7 +11,7 @@ config = {
     'T_num_hidden': 128, # num hidden units in outcome (target) encoder
     'M_num_hidden': 1024, # num hidden in meta network
     'H_num_hidden': 512, # " " " hyper network
-    'F_num_hidden': 128, # " " " task network that H parameterizes
+    'F_num_hidden': 200, # " " " task network that H parameterizes
     'task_weight_weight_mult': 1.,
     'F_num_hidden_layers': 3,
     'H_num_hidden_layers': 3,
@@ -26,14 +26,14 @@ config = {
     'color_pairs': [('red', 'blue'), ('green', 'purple'), ('yellow', 'teal')], # good, bad
     'hold_outs': ['shooter_red_blue_True_False', 'shooter_red_blue_True_True', 'shooter_green_purple_True_False', 'shooter_green_purple_True_True', 'shooter_yellow_teal_True_False', 'shooter_yellow_teal_True_True'], 
     'meta_tasks': ["switch_colors"],#, "switch_left_right"],  # if re-enabled, must re-add tasks
-    'num_epochs': 500000,
+    'num_epochs': 1000000,
     'play_cached': False, # if true, use a cached embedding to play 
                          # (for efficiency)
     'eval_cached': False, # use cached embedding for eval 
     'print_eval_Qs': False, # for debugging
     'softmax_policy': True, # if true, sample actions from probs, else greedy
     'optimizer': 'RMSProp',
-    'init_lr': 2e-5,
+    'init_lr': 3e-5,
     'init_meta_lr': 1e-9,
     'lr_decay': 0.85,
     'meta_lr_decay': 0.9,
@@ -45,9 +45,9 @@ config = {
     'refresh_caches_every': 100, # how frequently to refresh the caches
     'play_every': 2000, # how many epochs between plays
     'eval_every': 4000, # how many epochs between evals
-    'update_target_network_every': 30000, # how many epochs between updates to the target network
+    'update_target_network_every': 15000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_positive/results_94/',
+    'results_dir': '/mnt/fs4/lampinen/grids_positive/results_104/',
 }
 
 def _save_config(filename, config):
