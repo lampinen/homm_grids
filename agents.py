@@ -140,7 +140,13 @@ class EML_DQN_agent(random_agent):
         self.config = config
         self.train_environments = train_environments
         self.eval_environments = eval_environments
-        self.name_to_environment = {str(e): e for e in self.train_environments + self.eval_environments}
+        self.name_to_environment = {}
+        for e in self.train_environments + self.eval_environments:
+            (environment_name,
+             memory_buffer,
+             env_index) = self._environment_lookup(e)
+            self.name_to_environment[environment_name] = e
+
         self.meta_batch_size = config["meta_batch_size"]
         self.discount = config["discount"]
         self.verbose = False
@@ -155,7 +161,10 @@ class EML_DQN_agent(random_agent):
                 train_environment_defs=[e.game_def for e in self.train_environments],
                 eval_environment_defs=[e.game_def for e in self.eval_environments])
             self.meta_task_indices = {mt: i + self.num_environments for (i, mt) in enumerate(self.meta_tasks)}
-
+            self.meta_dataset_cache = {
+                mt: {"tr": None,
+                     "ev": None} for mt in self.meta_tasks
+            }
         ##### network
         internal_nonlinearity = config["internal_nonlinearity"]
 
@@ -235,6 +244,7 @@ class EML_DQN_agent(random_agent):
                                                     [None,])
         
         ## Meta: (Input, Output) -> Z (function embedding)
+        self.task_index_ph = tf.placeholder(tf.int32, [None,])
         self.guess_mask_ph = tf.placeholder(tf.bool, [None,])
 
         def _meta_network(embedded_inputs, embedded_targets,
@@ -264,13 +274,14 @@ class EML_DQN_agent(random_agent):
         with tf.variable_scope("learner"):
             self.base_guess_emb = _meta_network(embedded_inputs, embedded_outcomes,
                                                 reuse=False)
-            self.persistent_embeddings = tf.get_variable("cached_task_embeddings",
-                                                         [self.num_environments,
-                                                          config["z_dim"]],
-                                                         dtype=tf.float32)
+            self.persistent_embeddings = tf.get_variable(
+                "cached_task_embeddings",
+                [self.num_environments + len(self.meta_tasks),
+                 config["z_dim"]],
+                dtype=tf.float32)
             self.update_persistent_embeddings_ph = tf.placeholder(
                 tf.float32,
-                [None, config["z_dim"])
+                [None, config["z_dim"]])
 
             self.update_embeddings = tf.scatter_nd_update(
                 self.persistent_embeddings,
@@ -283,12 +294,12 @@ class EML_DQN_agent(random_agent):
                                                      reuse=False)
             self.persistent_embeddings_targ = tf.get_variable(
                 "cached_task_embeddings",
-                [self.num_environments,
+                [self.num_environments + len(self.meta_tasks),
                  config["z_dim"]],
                 dtype=tf.float32)
 
         def _get_persistent_embeddings(task_indices, target_net=False):
-            if target:
+            if target_net:
                 persistent_embs = self.persistent_embeddings_targ
             else:
                 persistent_embs = self.persistent_embeddings
@@ -310,11 +321,10 @@ class EML_DQN_agent(random_agent):
                 guess_embedding - cached_embedding) 
             return combined_embedding, emb_match_loss 
 
-        self.task_index_ph = tf.placeholder(tf.int32, [None,])
 
         with tf.variable_scope("learner"):
             self.lookup_cached_embs = _get_persistent_embeddings(
-                self.task_index_ph, target=False)
+                self.task_index_ph, target_net=False)
 
             (self.base_combined_emb,
              self.base_emb_match_loss) = _get_combined_embedding_and_match_loss(
@@ -326,7 +336,7 @@ class EML_DQN_agent(random_agent):
             meta_target_embeddings =_get_persistent_embeddings(
                 self.meta_target_indices_ph) 
             self.meta_guess_emb = _meta_network(meta_input_embeddings,
-                                                self.meta_target_embeddings)
+                                                meta_target_embeddings)
 
             (self.meta_combined_emb,
              self.meta_emb_match_loss) = _get_combined_embedding_and_match_loss(
@@ -394,6 +404,7 @@ class EML_DQN_agent(random_agent):
         with tf.variable_scope("learner"):
             self.base_guess_task_params = _hyper_network(self.base_combined_emb,
                                                          reuse=False)
+            self.cached_emb_task_params = _hyper_network(self.lookup_cached_embs)
             self.meta_guess_task_params = _hyper_network(self.meta_combined_emb)
             self.fed_emb_task_params = _hyper_network(self.feed_embedding_ph)
         with tf.variable_scope("target"):
@@ -418,7 +429,9 @@ class EML_DQN_agent(random_agent):
         self.base_raw_output = _task_network(self.base_guess_task_params,
                                              embedded_inputs)
         self.meta_raw_output = _task_network(self.meta_guess_task_params,
-                                             self.meta_input_ph)
+                                             meta_input_embeddings)
+        self.meta_cached_emb_raw_output = _task_network(self.cached_emb_task_params,
+                                                        meta_input_embeddings)
         self.fed_emb_base_raw_output = _task_network(self.fed_emb_task_params,
                                                      embedded_inputs)
 
@@ -426,8 +439,10 @@ class EML_DQN_agent(random_agent):
         #print(embedded_inf_inputs)
         self.inference_raw_output = _task_network(self.base_guess_task_params,
                                                   embedded_inf_inputs)
+        self.inference_cached_embs_raw_output = _task_network(
+            self.cached_emb_task_params, embedded_inf_inputs)
         self.fed_emb_inf_raw_output = _task_network(self.fed_emb_task_params,
-                                                     embedded_inf_inputs)
+                                                    embedded_inf_inputs)
         # target network
         self.base_raw_output_targ = _task_network(
             self.base_guess_task_params_targ,
@@ -456,6 +471,10 @@ class EML_DQN_agent(random_agent):
             (self.inference_output_logits,
              self.inference_output) = _output_mapping(self.inference_raw_output)
 
+            (self.inference_cached_embs_output_logits,
+             self.inference_cached_embs_output) = _output_mapping(
+                self.inference_cached_embs_raw_output)
+
             (self.fed_emb_base_output_logits,
              self.fed_emb_base_output) = _output_mapping(
                 self.fed_emb_base_raw_output)
@@ -482,7 +501,7 @@ class EML_DQN_agent(random_agent):
         base_relevant_Qs = tf.boolean_mask(self.base_output_logits,
                                            action_taken_mask)
         self.base_loss = tf.nn.l2_loss(base_relevant_Qs - self.base_target_ph) + self.base_emb_match_loss
-        self.meta_loss = tf.nn.l2_loss(self.meta_raw_output - self.meta_target_ph)
+        self.meta_loss = tf.nn.l2_loss(self.meta_raw_output - meta_target_embeddings) + self.meta_emb_match_loss
 
 #        fed_emb_base_relevant_Qs = tf.boolean_mask(self.fed_emb_base_output_logits,
 #                                           action_taken_mask)
@@ -514,9 +533,13 @@ class EML_DQN_agent(random_agent):
         # initialize
         sess_config = tf.ConfigProto()
         sess_config.gpu_options.allow_growth = True
+        print("Session")
         self.sess = tf.Session(config=sess_config)
+        print("Init")
         self.sess.run(tf.global_variables_initializer())
+        print("Update target net")
         self.sess.run(self.update_target_op)
+        print("Ready")
 
     def update_target_network(self):
         self.sess.run(self.update_target_op)
@@ -545,7 +568,7 @@ class EML_DQN_agent(random_agent):
             self.action_ph: c_actions,
             self.reward_ph: c_rewards,
             self.input_ph: c_observations,
-            self.task_index_ph: env_index,
+            self.task_index_ph: np.array([env_index], dtype=np.int32),
             self.guess_mask_ph: np.ones([len(c_actions)],  # can be overridden
                                         np.bool),
         }
@@ -563,61 +586,68 @@ class EML_DQN_agent(random_agent):
                 self.meta_dataset_cache[mt]["tr"] = {}
                 self.meta_dataset_cache[mt]["ev"] = {}
                 self.meta_dataset_cache[mt]["tr"]["in"] = np.zeros(
-                    [num_train, config["z_dim"]], dtype=np.float32)
+                    [num_train, ], dtype=np.int32)
                 self.meta_dataset_cache[mt]["tr"]["out"] = np.zeros(
-                    [num_train, config["z_dim"]], dtype=np.float32)
+                    [num_train, ], dtype=np.int32)
 
                 self.meta_dataset_cache[mt]["ev"]["in"] = np.zeros(
-                    [num_train + num_eval, config["z_dim"]], dtype=np.float32)
+                    [num_train + num_eval], dtype=np.int32)
                 self.meta_dataset_cache[mt]["ev"]["out"] = np.zeros(
-                    [num_train + num_eval, config["z_dim"]], dtype=np.float32)
+                    [num_train + num_eval], dtype=np.int32)
                 eval_guess_mask = np.concatenate([np.ones([num_train],
                                                           dtype=np.bool),
-                                                  np.zeros([num_train],
+                                                  np.zeros([num_eval],
                                                            dtype=np.bool)])
 
                 self.meta_dataset_cache[mt]["ev"]["gm"] = eval_guess_mask 
 
             for i, (e, res) in enumerate(train_pairings):
-                e_emb = #self.task_embedding_cache[e]
-                res_emb = #self.task_embedding_cache[res]
-                self.meta_dataset_cache[mt]["tr"]["in"][i, :] = e_emb
-                self.meta_dataset_cache[mt]["tr"]["out"][i, :] = res_emb
+                e_index = self.environment_indices[e]
+                res_index = self.environment_indices[res]
+                self.meta_dataset_cache[mt]["tr"]["in"][i] = e_index
+                self.meta_dataset_cache[mt]["tr"]["out"][i] = res_index
 
-            self.meta_dataset_cache[mt]["ev"]["in"][:num_train, :] = self.meta_dataset_cache[mt]["tr"]["in"]
-            self.meta_dataset_cache[mt]["ev"]["out"][:num_train, :] = self.meta_dataset_cache[mt]["tr"]["out"]
+            self.meta_dataset_cache[mt]["ev"]["in"][:num_train] = self.meta_dataset_cache[mt]["tr"]["in"]
+            self.meta_dataset_cache[mt]["ev"]["out"][:num_train] = self.meta_dataset_cache[mt]["tr"]["out"]
 
             for i, (e, res) in enumerate(eval_pairings):
-                e_emb = #self.task_embedding_cache[e]
-                res_emb = #self.task_embedding_cache[res]
-                self.meta_dataset_cache[mt]["ev"]["in"][num_train + i, :] = e_emb
+                e_index = self.environment_indices[e]
+                res_index = self.environment_indices[res]
+                self.meta_dataset_cache[mt]["ev"]["in"][num_train + i] = e_index
 
     def choose_action(self, environment, observation, cached=False, from_embedding=None, print_Qs=False):
         (environment_name,
-         memory_buffer) = self._environment_lookup(environment)
+         memory_buffer,
+         task_index) = self._environment_lookup(environment)
         if np.random.random() < self.epsilon: 
              return environment.sample_action()
         # TODO? Have a separate memory for only actions that achieved a reward
         # condition only on these.
-        if not cached and from_embedding is None: # will need to remember experiences
-            feed_dict = self.build_feed_dict(memory_buffer)
+        if from_embedding is not None:
+            feed_dict = {
+                self.inference_input_ph: np.expand_dims(observation, axis=0), 
+            }
+            if len(from_embedding.shape) == 1:
+                from_embedding = np.expand_dims(from_embedding, axis=0)
+            feed_dict[self.feed_embedding_ph] = from_embedding 
+            Qs, action_probs = self.sess.run(
+                [self.fed_emb_inf_output_logits, self.fed_emb_inf_output], 
+                feed_dict=feed_dict)
+        elif cached:
+            feed_dict = {
+                self.inference_input_ph: np.expand_dims(observation, axis=0), 
+                self.task_index_ph: np.array([task_index], dtype=np.int32),
+            }
+            Qs, action_probs = self.sess.run(
+                [self.inference_cached_embs_output_logits,
+                 self.inference_cached_embs_output], 
+                feed_dict=feed_dict)
+        else: # will need to remember experiences
+            feed_dict = self.build_feed_dict(memory_buffer, task_index)
             feed_dict[self.inference_input_ph] = np.expand_dims(
                 observation, axis=0) 
             Qs, action_probs = self.sess.run(
                 [self.inference_output_logits, self.inference_output], 
-                feed_dict=feed_dict)
-        else:
-            feed_dict = {
-                self.inference_input_ph: np.expand_dims(observation, axis=0), 
-            }
-            if cached:
-                feed_dict[self.feed_embedding_ph] = #self.task_embedding_cache[environment_name]
-            else:
-                if len(from_embedding.shape) == 1:
-                    from_embedding = np.expand_dims(from_embedding, axis=0)
-                feed_dict[self.feed_embedding_ph] = from_embedding 
-            Qs, action_probs = self.sess.run(
-                [self.fed_emb_inf_output_logits, self.fed_emb_inf_output], 
                 feed_dict=feed_dict)
 
         if print_Qs:
@@ -631,7 +661,7 @@ class EML_DQN_agent(random_agent):
 
         return action
 
-    def train_step(self, memory_buffer, lr):
+    def train_step(self, memory_buffer, task_index, lr):
         conditioning_memories = [memory_buffer.sample(2) for _ in range(self.meta_batch_size)] 
         # first run second time step from each trace through target net, to construct targets
         c_observations = np.array([x[1][0] for x in conditioning_memories])
@@ -641,6 +671,7 @@ class EML_DQN_agent(random_agent):
             self.action_ph: c_actions,
             self.reward_ph: c_rewards,
             self.input_ph: c_observations,
+            self.task_index_ph: np.array([task_index], dtype=np.int32),
             self.guess_mask_ph: np.ones([len(c_actions)], 
                                         np.bool),
         }
@@ -657,6 +688,7 @@ class EML_DQN_agent(random_agent):
             self.action_ph: c_actions,
             self.reward_ph: c_rewards,
             self.input_ph: c_observations,
+            self.task_index_ph: np.array([task_index], dtype=np.int32),
             self.guess_mask_ph: np.concatenate([np.ones([len(c_actions) // 2], 
                                                         np.bool),
                                                 np.zeros([len(c_actions) // 2],
@@ -669,6 +701,7 @@ class EML_DQN_agent(random_agent):
 
     def meta_train_step(self, meta_task, meta_lr):
         meta_dataset = self.meta_dataset_cache[meta_task]["tr"]
+        meta_task_index = self.meta_task_indices[meta_task]
         num_tasks = len(meta_dataset["in"])
         guess_mask = np.concatenate([np.ones([num_tasks // 2], 
                                              np.bool),
@@ -676,9 +709,10 @@ class EML_DQN_agent(random_agent):
                                               np.bool)]) 
         np.random.shuffle(guess_mask)
         feed_dict = {
-            self.meta_input_ph: meta_dataset["in"],
-            self.meta_target_ph: meta_dataset["out"],
+            self.meta_input_indices_ph: meta_dataset["in"],
+            self.meta_target_indices_ph: meta_dataset["out"],
             self.guess_mask_ph: guess_mask,
+            self.task_index_ph: np.array([meta_task_index], dtype=np.int32),
             self.lr_ph: meta_lr,
         }
         self.sess.run(self.meta_train,
@@ -692,10 +726,40 @@ class EML_DQN_agent(random_agent):
                 self.meta_train_step(t, meta_lr)
             else: # base task
                 (environment_name,
-                 memory_buffer) = self._environment_lookup(t)
-                self.train_step(memory_buffer, base_lr)
+                 memory_buffer,
+                 task_index) = self._environment_lookup(t)
+                self.train_step(memory_buffer, task_index, base_lr)
 
-    def do_meta_true_eval(self, meta_tasks, num_games=1, max_steps=1e5):
+
+    def update_eval_task_embeddings(self):
+        # TODO: update for held out meta-tasks (see below)
+        update_inds = []
+        update_values = []
+        for env in self.eval_environments:
+            (environment_name,
+             memory_buffer,
+             task_index) = self._environment_lookup(env)
+            feed_dict = self.build_feed_dict(memory_buffer, task_index) 
+            task_emb = self.sess.run(self.base_guess_emb, feed_dict=feed_dict)
+            update_inds.append(task_index)
+            update_values.append(task_emb)
+
+        print(self.sess.run(self.persistent_embeddings)[update_inds[0]])
+        print(update_values[0])
+        self.sess.run(
+            self.update_embeddings,
+            feed_dict={
+                self.task_index_ph: np.array(update_inds, dtype=np.int32),
+                self.update_persistent_embeddings_ph: np.array(update_values)
+            })
+        print(self.sess.run(self.persistent_embeddings)[update_inds[0]])
+        exit()
+
+
+    def do_meta_true_eval(self, meta_tasks, cached=False, num_games=1, max_steps=1e5):
+        # TODO: Update this function (or the one called next line) to allow
+        # held-out meta-tasks.
+        self.update_eval_task_embeddings()
         curr_epsilon = self.epsilon
         self.epsilon = 0.
         names = []
@@ -706,13 +770,25 @@ class EML_DQN_agent(random_agent):
         sqrt_n = np.sqrt(num_games)
         for mt in meta_tasks:
             meta_dataset = self.meta_dataset_cache[mt]["ev"]
-            feed_dict = {
-                self.meta_input_ph: meta_dataset["in"],
-                self.meta_target_ph: meta_dataset["out"],
-                self.guess_mask_ph: meta_dataset["gm"],
-            }
-            outputs = self.sess.run(self.meta_raw_output,
-                                    feed_dict=feed_dict)
+            mt_index = self.meta_task_indices[mt]
+            if cached:
+                feed_dict = {
+                    self.meta_input_indices_ph: meta_dataset["in"],
+                    self.meta_target_indices_ph: meta_dataset["out"],
+                    self.task_index_ph: np.array([mt_index], dtype=np.int32),
+                    self.guess_mask_ph: meta_dataset["gm"],
+                }
+                outputs = self.sess.run(self.meta_raw_output,
+                                        feed_dict=feed_dict)
+            
+            else:
+                feed_dict = {
+                    self.meta_input_indices_ph: meta_dataset["in"],
+                    self.task_index_ph: np.array([mt_index], dtype=np.int32),
+                    self.guess_mask_ph: meta_dataset["gm"],
+                }
+                outputs = self.sess.run(self.meta_raw_output,
+                                        feed_dict=feed_dict)
 
             these_pairings = self.meta_pairings[mt]["train"] +  self.meta_pairings[mt]["eval"]  
             for i, (task, mapped) in enumerate(these_pairings):
