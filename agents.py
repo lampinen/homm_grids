@@ -742,18 +742,14 @@ class EML_DQN_agent(random_agent):
             feed_dict = self.build_feed_dict(memory_buffer, task_index) 
             task_emb = self.sess.run(self.base_guess_emb, feed_dict=feed_dict)
             update_inds.append(task_index)
-            update_values.append(task_emb)
+            update_values.append(task_emb[0])
 
-        print(self.sess.run(self.persistent_embeddings)[update_inds[0]])
-        print(update_values[0])
         self.sess.run(
             self.update_embeddings,
             feed_dict={
                 self.task_index_ph: np.array(update_inds, dtype=np.int32),
-                self.update_persistent_embeddings_ph: np.array(update_values)
+                self.update_persistent_embeddings_ph: update_values
             })
-        print(self.sess.run(self.persistent_embeddings)[update_inds[0]])
-        exit()
 
 
     def do_meta_true_eval(self, meta_tasks, cached=False, num_games=1, max_steps=1e5):
@@ -787,7 +783,7 @@ class EML_DQN_agent(random_agent):
                     self.task_index_ph: np.array([mt_index], dtype=np.int32),
                     self.guess_mask_ph: meta_dataset["gm"],
                 }
-                outputs = self.sess.run(self.meta_raw_output,
+                outputs = self.sess.run(self.meta_cached_emb_raw_output,
                                         feed_dict=feed_dict)
 
             these_pairings = self.meta_pairings[mt]["train"] +  self.meta_pairings[mt]["eval"]  
