@@ -1,5 +1,5 @@
 ---
-title: "EML Ggrid-world analyses"
+title: "EML Grid-world analyses"
 author: "Andrew Lampinen"
 output: html_document
 ---
@@ -12,7 +12,8 @@ library(tidyverse)
 ```{r}
 results_dir = "../results/"
 
-result_subdirs = c("results_0", "results_2", "results_3", "results_4", "results_5", "results_6", "results_7", "results_8", "results_9")
+result_subdirs = c("results_0", "results_1", "results_2", "results_3", "results_4", "results_5", "results_6", "results_7", "results_8", "results_9"
+                   )
 
 ```
 
@@ -81,14 +82,46 @@ base_d = base_d %>%
            c("game_type", "good_color", "bad_color", "switch_colors", "switch_left_right", "metric"),
            sep="_",
            extra="merge") %>%
-  spread(metric, value)
+  spread(metric, value) %>%
+  mutate(environment_name = paste(game_type, good_color, bad_color, switch_colors, switch_left_right, sep="_"))
+```
+
+```{r}
+check_if_eval = function(environment_name, this_run_type) {
+  these_hold_outs = config_d %>% 
+    filter(run_type == this_run_type) %>% 
+    pull(hold_outs) %>%
+    unlist()
+  return(environment_name %in% these_hold_outs)
+}
+
+check_if_eval = Vectorize(check_if_eval)
+```
+
+```{r}
+base_d = base_d %>% 
+  mutate(eval = check_if_eval(environment_name, run_type))
 ```
 
 # basic plot
+```{r}
+theme_set(theme_bw())
+```
 
 ```{r}
 ggplot(base_d,
-       aes(x=epoch, y=returns_mean, color=game_type)) +
+       aes(x=epoch, y=returns_mean, color=game_type, linetype=eval)) +
+  geom_line(stat="summary",
+            fun.y="mean") +
+  geom_hline(yintercept=1.8,
+             linetype=2) +
+  facet_wrap(~ run_type, scales = "free")
+```
+
+```{r}
+ggplot(base_d %>% 
+         filter(game_type == "shooter"),
+       aes(x=epoch, y=returns_mean, linetype=eval)) +
   geom_line(stat="summary",
             fun.y="mean") +
   facet_wrap(~ run_type, scales = "free")
@@ -96,7 +129,7 @@ ggplot(base_d,
 
 ```{r}
 ggplot(base_d,
-       aes(x=epoch, y=steps_mean, color=game_type)) +
+       aes(x=epoch, y=steps_mean, color=game_type, linetype=eval)) +
   geom_line(stat="summary",
             fun.y="mean") +
   facet_wrap(~ run_type, scales = "free")
@@ -115,6 +148,8 @@ meta_d = meta_d %>%
            c("meta_task", "source", "target_and_metric"),
            sep=":|->",
            extra="merge") %>%
+  mutate(metric = str_extract(target_and_metric, "(steps|returns)_(mean|se)$"),
+         target = sub("(steps|returns)_(mean|se)$", "", target_and_metric)) %>%
   spread(metric, value) %>%
   mutate(eval = grepl("\\[eval\\]", meta_task)) %>%
   mutate(meta_task = sub("\\[eval\\]", "", meta_task))
@@ -124,7 +159,7 @@ meta_d = meta_d %>%
 
 ```{r}
 ggplot(meta_d,
-       aes(x=epoch, y=returns_mean, color=eval)) +
+       aes(x=epoch, y=returns_mean,  linetype=eval)) +
   geom_line(stat="summary",
             fun.y="mean") +
   facet_wrap(~ run_type, scales="free")
