@@ -397,7 +397,7 @@ class Renderer(object):
                       j * self.upsample_size:(j + 1) * self.upsample_size,
                       :] = this_obj
         if heading != 0:
-            image = np.rot90(image, 4 - heading)
+            image = np.rot90(image, heading)
             # fix agent orientation
             middle = (self.scroll_size // 2) * self.upsample_size
             agent = image[middle:middle + self.upsample_size,
@@ -405,7 +405,7 @@ class Renderer(object):
                           :]
             image[middle:middle + self.upsample_size,
                   middle:middle + self.upsample_size,
-                  :] = np.rot90(agent, heading) 
+                  :] = np.rot90(agent, 4 - heading) 
         return image
         
 
