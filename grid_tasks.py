@@ -160,35 +160,12 @@ class PlayerSprite(prefab_sprites.MazeWalker):
         self.game_type = game_type
 
     def update(self, actions, board, layers, backdrop, things, the_plot):
-        if actions == 5:
+        if actions is None:  # dummy step at start of game
+            return
+        elif actions == 8:
           the_plot.terminate_episode()
-        if self.game_type == "shooter":
-            heading = the_plot["heading"]
-            if actions == 0:
-                if heading == 0:
-                    self._north(board, the_plot)
-                elif heading == 1:
-                    self._east(board, the_plot)
-                elif heading == 2:
-                    self._south(board, the_plot)
-                elif heading == 3:
-                    self._west(board, the_plot)
-            elif actions == 1:
-                the_plot["heading"] = (heading + 1) % 4
-            elif actions == 2:
-                if heading == 0:
-                    self._south(board, the_plot)
-                elif heading == 1:
-                    self._west(board, the_plot)
-                elif heading == 2:
-                    self._north(board, the_plot)
-                elif heading == 3:
-                    self._east(board, the_plot)
-            elif actions == 3:
-                the_plot["heading"] = (heading - 1) % 4
-            elif actions == 4:
-                self._shoot(heading, things, the_plot)
-
+        elif self.game_type == "shooter" and actions >= 4:
+            self._shoot(actions - 4, things, the_plot)
         else:
             if actions == 0:
                 self._north(board, the_plot)
@@ -507,11 +484,10 @@ def main(argv=()):
         ui = human_ui.CursesUi(
             keys_to_actions={curses.KEY_UP: 0, curses.KEY_RIGHT: 1,
                              curses.KEY_DOWN: 2, curses.KEY_LEFT: 3,
-                             ' ': 4,
-                             'q': 5, 'Q': 5},
+                             'w': 4, 'd': 5, 's': 6, 'a': 7,
+                             'q': 8, 'Q': 8},
             delay=None, colour_fg={k: curse_color(v) for k, v in COLOURS.items()},
-            colour_bg={AGENT_CHAR: (0, 0, 0)},
-            croppers=[cropper])
+            colour_bg={AGENT_CHAR: (0, 0, 0)})
 
         ui.play(game)
 

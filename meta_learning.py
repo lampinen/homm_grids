@@ -17,15 +17,15 @@ config = {
     'H_num_hidden_layers': 3,
     'internal_nonlinearity': tf.nn.leaky_relu,
     'meta_max_pool': True, # max or average across examples
-    'num_actions': 5,
+    'num_actions': 8,
     'softmax_beta': 3.,
     'discount': 0.85,
     'meta_batch_size': 128, # how many examples the meta-net is conditioned on
                             # for base training.
     'game_types': ['pick_up', 'shooter'], 
     'color_pairs': [('red', 'blue'), ('green', 'purple'), ('yellow', 'teal')], # good, bad
-    'hold_outs': ['shooter_red_blue_True_False', 'shooter_red_blue_True_True', 'shooter_green_purple_True_False', 'shooter_green_purple_True_True', 'shooter_yellow_teal_True_False', 'shooter_yellow_teal_True_True'], 
-    'meta_tasks': ["switch_colors"],#, "switch_left_right"],  # if re-enabled, must re-add tasks
+    'hold_outs': ['shooter_red_blue_True_False', 'shooter_red_blue_True_True', 'pick_up_red_blue_True_False', 'pick_up_red_blue_True_True'], 
+    'meta_tasks': ["switch_colors"],#, "switch_left_right"],  # if re-enabled, must re-add tasks, AND RETHINK FOR NEW CONTROL SCHEME
     'num_epochs': 1000000,
     'combined_emb_guess_weight': 0.5, 
     'emb_match_loss_weight': 1.,  # weight on the loss that tries to match the
@@ -35,8 +35,8 @@ config = {
     'eval_cached': True, # use cached embedding for eval 
     'print_eval_Qs': False, # for debugging
     'softmax_policy': True, # if true, sample actions from probs, else greedy
-    'optimizer': 'RMSProp',
-    'init_lr': 4e-5,
+    'optimizer': 'Adam',
+    'init_lr': 3e-5,
     'init_meta_lr': 1e-9,
     'lr_decay': 0.85,
     'meta_lr_decay': 0.9,
@@ -47,9 +47,9 @@ config = {
     'min_meta_lr': 1e-10,
     'play_every': 2000, # how many epochs between plays
     'eval_every': 4000, # how many epochs between evals
-    'update_target_network_every': 15000, # how many epochs between updates to the target network
+    'update_target_network_every': 20000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_1/',
+    'results_dir': '/mnt/fs4/lampinen/grids_persistent_static/results_0/',
 }
 
 def _save_config(filename, config):
