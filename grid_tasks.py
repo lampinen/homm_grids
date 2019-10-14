@@ -412,7 +412,7 @@ class Environment(object):
     """A game wrapper that handles resetting, rendering, and input flips."""
     def __init__(self,
                  game_def, 
-                 num_actions=5,
+                 num_actions=8,
                  max_steps=40,
                  objects=OBJECTS):
         self.num_actions = num_actions
