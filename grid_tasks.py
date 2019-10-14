@@ -312,6 +312,7 @@ class ShootableDrape(plab_things.Drape):
         player_position = things[AGENT_CHAR].position
 
         if self.curtain[player_position]:
+            the_plot.add_reward(NEG_VALUE)
             the_plot.terminate_episode()
 
 #        if the_plot["shooting"]:
@@ -510,8 +511,7 @@ def main(argv=()):
                              ' ': 4,
                              'q': 5, 'Q': 5},
             delay=None, colour_fg={k: curse_color(v) for k, v in COLOURS.items()},
-            colour_bg={AGENT_CHAR: (0, 0, 0)},
-            croppers=[cropper])
+            colour_bg={AGENT_CHAR: (0, 0, 0)})
 
         ui.play(game)
 
