@@ -10,9 +10,16 @@ library(tidyverse)
 ```
 
 ```{r}
-results_dir = "../results/"
+#results_dir = "../results/persistent_rot/"
+#results_dir = "../results/persistent_static/"
+results_dir = "../results/persistent/"
 
-result_subdirs = c("results_0", "results_1", "results_2", "results_3", "results_4", "results_5", "results_6", "results_7", "results_8", "results_9"
+result_subdirs = c("results_0", 
+                   #"results_1", "results_2", "results_3", "results_4", 
+                   #"results_5", "results_6", "results_7",
+                   "results_8", "results_9", "results_10", "results_11", "results_12",
+                   "results_13", "results_14", "results_15", "results_16", "results_17", "results_18",
+                   "results_19", "results_20", "results_21"
                    )
 
 ```
@@ -65,6 +72,12 @@ load_d = function(results_dir, result_subdirs, num_runs, file_type) {
 ```{r}
 config_d = load_d(results_dir, result_subdirs, num_runs, "config")
 ```
+```{r}
+config_d = config_d %>% 
+  rowwise() %>% 
+  mutate(hold_outs = list(sub("pick_up", "pickup",hold_outs))) %>%
+  ungroup() 
+```
 
 # base data loading
 
@@ -76,8 +89,7 @@ base_d = load_d(results_dir, result_subdirs, num_runs, "base_losses")
 base_d = base_d %>%
   gather(environment_and_metric, value, -epoch, -run_type, -run) %>%
   mutate(environment_and_metric=sub("pick_up", "pickup", environment_and_metric),
-         environment_and_metric=sub("sequence_imitation", "sequenceimitation", environment_and_metric),
-         ) %>%
+         environment_and_metric=sub("sequence_imitation", "sequenceimitation", environment_and_metric)) %>%
   separate(environment_and_metric, 
            c("game_type", "good_color", "bad_color", "switch_colors", "switch_left_right", "metric"),
            sep="_",
@@ -151,16 +163,25 @@ meta_d = meta_d %>%
   mutate(metric = str_extract(target_and_metric, "(steps|returns)_(mean|se)$"),
          target = sub("(steps|returns)_(mean|se)$", "", target_and_metric)) %>%
   spread(metric, value) %>%
-  mutate(eval = grepl("\\[eval\\]", meta_task)) %>%
-  mutate(meta_task = sub("\\[eval\\]", "", meta_task))
+  mutate(eval = grepl("\\[eval\\]", meta_task),
+         meta_task = sub("\\[eval\\]", "", meta_task),
+         source_is_eval = check_if_eval(source, run_type)) %>%
+  mutate(source=sub("pick_up", "pickup", source),
+         source=sub("sequence_imitation", "sequenceimitation", source)) %>%
+  separate(source, 
+           c("source_game_type", "source_good_color", "source_bad_color", "source_switch_colors", "source_switch_left_right"),
+           sep="_",
+           extra="merge")
 ```
 
 # basic plot
 
 ```{r}
 ggplot(meta_d,
-       aes(x=epoch, y=returns_mean,  linetype=eval)) +
+       aes(x=epoch, y=returns_mean, color=source_game_type, linetype=interaction(eval, source_is_eval))) +
   geom_line(stat="summary",
             fun.y="mean") +
+  geom_hline(yintercept=1.8,
+             linetype=2) +
   facet_wrap(~ run_type, scales="free")
 ```
