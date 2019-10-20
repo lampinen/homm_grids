@@ -5,8 +5,6 @@ import tensorflow.contrib.slim as slim
 import grid_tasks 
 from meta_tasks import generate_meta_pairings
 
-NUM_ACTIONS = 5
-
 class memory_buffer(object):
     """An object that holds traces, controls length, and allows samples.""" 
     def __init__(self, max_length=1000, drop_size=100):
@@ -314,6 +312,8 @@ class EML_DQN_agent(random_agent):
                                                    target_net=False):
             cached_embedding = _get_persistent_embeddings(task_index,
                                                           target_net=target_net)
+            if guess_weight == "varied":
+                guess_weight = tf.random.uniform([], dtype=tf.float32)
             combined_embedding = guess_weight * guess_embedding + (1. - guess_weight) * cached_embedding
             # could use some thought on whether to e.g. stop gradients to the
             # guess embedding here or not
