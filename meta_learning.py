@@ -18,7 +18,7 @@ config = {
     'internal_nonlinearity': tf.nn.leaky_relu,
     'meta_max_pool': True, # max or average across examples
     'num_actions': 5,
-    'softmax_beta': 10.,
+    'softmax_beta': 8.,
     'discount': 0.85,
     'meta_batch_size': 128, # how many examples the meta-net is conditioned on
                             # for base training.
@@ -26,7 +26,7 @@ config = {
     'color_pairs': [('red', 'blue'), ('green', 'purple'), ('yellow', 'teal')], # good, bad
     'hold_outs': ['shooter_red_blue_True_False', 'shooter_red_blue_True_True',
                   'pick_up_red_blue_True_False', 'pick_up_red_blue_True_True'],#, 'shooter_green_purple_True_False', 'shooter_green_purple_True_True', 'shooter_yellow_teal_True_False', 'shooter_yellow_teal_True_True'], 
-    'meta_tasks': ["switch_colors", "switch_left_right"],  # if re-enabled, must re-add tasks
+    'meta_tasks': ["switch_colors"],#, "switch_left_right"],  # if re-enabled, must fix so shooter is understandable 
     'num_epochs': 1000000,
     'combined_emb_guess_weight': "varied", 
     'emb_match_loss_weight': 0.2,  # weight on the loss that tries to match the
@@ -36,9 +36,9 @@ config = {
     'eval_cached': True, # use cached embedding for eval 
     'print_eval_Qs': False, # for debugging
     'softmax_policy': True, # if true, sample actions from probs, else greedy
-    'optimizer': 'RMSProp',
-    'init_lr': 5e-5,
-    'init_meta_lr': 5e-6,
+    'optimizer': 'Adam',
+    'init_lr': 1e-5,
+    'init_meta_lr': 1e-7,
     'lr_decay': 0.9,
     'meta_lr_decay': 0.95,
     'epsilon_decrease': 0.03,
@@ -50,7 +50,7 @@ config = {
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 30000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_33/',
+    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_36/',
 }
 
 def _save_config(filename, config):
@@ -63,7 +63,7 @@ environment_defs = []
 for game_type in config["game_types"]:
     for good_color, bad_color in config["color_pairs"]:
         for switched_colors in [False, True]:
-            for switched_left_right in [False, True]:
+            for switched_left_right in [False]:#, True]:
                 environment_defs.append(grid_tasks.GameDef(
                     game_type=game_type,
                     good_color=good_color,
