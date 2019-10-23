@@ -614,6 +614,7 @@ class EML_DQN_agent(random_agent):
                 e_index = self.environment_indices[e]
                 res_index = self.environment_indices[res]
                 self.meta_dataset_cache[mt]["ev"]["in"][num_train + i] = e_index
+                self.meta_dataset_cache[mt]["ev"]["out"][num_train + i] = res_index
 
     def choose_action(self, environment, observation, cached=False, from_embedding=None, print_Qs=False):
         (environment_name,
