@@ -753,7 +753,7 @@ class EML_DQN_agent(random_agent):
             })
 
 
-    def do_meta_true_eval(self, meta_tasks, cached=False, num_games=1, max_steps=1e5):
+    def do_meta_true_eval(self, meta_tasks, cached=False, num_games=10, max_steps=1e5):
         # TODO: Update this function (or the one called next line) to allow
         # held-out meta-tasks.
         self.update_eval_task_embeddings()
