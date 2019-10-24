@@ -36,21 +36,21 @@ config = {
     'eval_cached': True, # use cached embedding for eval 
     'print_eval_Qs': False, # for debugging
     'softmax_policy': True, # if true, sample actions from probs, else greedy
-    'optimizer': 'Adam',
-    'init_lr': 1e-5,
-    'init_meta_lr': 1e-7,
+    'optimizer': 'RMSProp',
+    'init_lr': 5e-6,
+    'init_meta_lr': 2e-7,
     'lr_decay': 0.9,
     'meta_lr_decay': 0.95,
     'epsilon_decrease': 0.03,
     'min_epsilon': 0.15,
     'lr_decays_every': 30000,
-    'min_lr': 1e-10,
-    'min_meta_lr': 1e-10,
+    'min_lr': 1e-8,
+    'min_meta_lr': 1e-8,
     'play_every': 1500, # how many epochs between plays
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 30000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_36/',
+    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_51/',
 }
 
 def _save_config(filename, config):
