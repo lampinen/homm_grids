@@ -28,8 +28,8 @@ config = {
                   'pick_up_red_blue_True_False', 'pick_up_red_blue_True_True'],#, 'shooter_green_purple_True_False', 'shooter_green_purple_True_True', 'shooter_yellow_teal_True_False', 'shooter_yellow_teal_True_True'], 
     'meta_tasks': ["switch_colors"],#, "switch_left_right"],  # if re-enabled, must fix so shooter is understandable 
     'num_epochs': 1000000,
-    'combined_emb_guess_weight': 0., 
-    'emb_match_loss_weight': 0.,  # weight on the loss that tries to match the
+    'combined_emb_guess_weight': "varied", 
+    'emb_match_loss_weight': 0.2,  # weight on the loss that tries to match the
                                   # embedding guess and cache
     'play_cached': False, # if true, use a cached embedding to play 
                          # (for efficiency)
@@ -50,7 +50,7 @@ config = {
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 30000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_59/',
+    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_60/',
 }
 
 def _save_config(filename, config):
@@ -63,7 +63,7 @@ environment_defs = []
 for game_type in config["game_types"]:
     for good_color, bad_color in config["color_pairs"]:
         for switched_colors in [False, True]:
-            for switched_left_right in [False]:#, True]:
+            for switched_left_right in [False, True]:
                 environment_defs.append(grid_tasks.GameDef(
                     game_type=game_type,
                     good_color=good_color,

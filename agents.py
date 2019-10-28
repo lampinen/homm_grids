@@ -97,6 +97,10 @@ class random_agent(object):
                                    this_reward)) 
             
         if remember:
+            # add final observation
+            memory_buffer.add((obs, 
+                               None,
+                               None)) 
             memory_buffer.end_experience()
 
         return done, step, total_return
@@ -172,6 +176,9 @@ class EML_DQN_agent(random_agent):
         # for efficient forward passes, don't compute all outputs,
         self.inference_input_ph = tf.placeholder(tf.float32, [1, 91, 91, 3])
 
+        # also provide next state, for disambiguating action permutations
+        self.next_state_ph = tf.placeholder(tf.float32, [None, 91, 91, 3]) 
+
         # preprocessing as necessary
         processed_input = self.input_ph
         self.processed_input = processed_input
@@ -205,9 +212,11 @@ class EML_DQN_agent(random_agent):
             embedded_inputs = _vision(processed_input, reuse=False)
             self.embedded_inputs = embedded_inputs
             embedded_inf_inputs = _vision(processed_inf_input)
+            embedded_next_states = _vision(self.next_state_ph)
         with tf.variable_scope("target"): # target DQN
             embedded_inputs_targ = _vision(processed_input, reuse=False)
             self.embedded_inputs_targ = embedded_inputs_targ
+            embedded_next_states_targ = _vision(self.next_state_ph)
 
         self.meta_input_indices_ph = tf.placeholder(tf.int32,
                                                     [None,])
@@ -218,7 +227,13 @@ class EML_DQN_agent(random_agent):
 
         self.preprocessed_outcomes = tf.concat(
             [tf.one_hot(self.action_ph, depth=config["num_actions"]),
-             tf.expand_dims(self.reward_ph, axis=-1)],
+             tf.expand_dims(self.reward_ph, axis=-1),
+             embedded_next_states],
+            axis=-1)
+        self.preprocessed_outcomes_targ = tf.concat(
+            [tf.one_hot(self.action_ph, depth=config["num_actions"]),
+             tf.expand_dims(self.reward_ph, axis=-1),
+             embedded_next_states_targ],
             axis=-1)
         
         def _outcome_encoder(outcomes, reuse=True):
@@ -235,8 +250,8 @@ class EML_DQN_agent(random_agent):
             embedded_outcomes = _outcome_encoder(self.preprocessed_outcomes,
                                                  reuse=False)
         with tf.variable_scope("target"):
-            embedded_outcomes_targ = _outcome_encoder(self.preprocessed_outcomes,
-                                                 reuse=False)
+            embedded_outcomes_targ = _outcome_encoder(
+                self.preprocessed_outcomes_targ, reuse=False)
 
         self.meta_target_indices_ph = tf.placeholder(tf.int32,
                                                     [None,])
@@ -564,13 +579,15 @@ class EML_DQN_agent(random_agent):
             self.epsilon = curr_epsilon
 
     def build_feed_dict(self, memory_buffer, env_index):
-        conditioning_memories = [memory_buffer.sample(1)[0] for _ in range(self.meta_batch_size)] 
-        c_observations = np.array([x[0] for x in conditioning_memories])
-        c_actions = np.array([x[1] for x in conditioning_memories], np.int32)
-        c_rewards = np.array([x[2] for x in conditioning_memories])
+        conditioning_memories = [memory_buffer.sample(2) for _ in range(self.meta_batch_size)] 
+        ns_observations = np.array([x[1][0] for x in conditioning_memories])
+        c_observations = np.array([x[0][0] for x in conditioning_memories])
+        c_actions = np.array([x[0][1] for x in conditioning_memories], np.int32)
+        c_rewards = np.array([x[0][2] for x in conditioning_memories])
         feed_dict = {
             self.action_ph: c_actions,
             self.reward_ph: c_rewards,
+            self.next_state_ph: ns_observations,
             self.input_ph: c_observations,
             self.task_index_ph: np.array([env_index], dtype=np.int32),
             self.guess_mask_ph: np.ones([len(c_actions)],  # can be overridden
@@ -667,15 +684,17 @@ class EML_DQN_agent(random_agent):
         return action
 
     def train_step(self, memory_buffer, task_index, lr):
-        conditioning_memories = [memory_buffer.sample(2) for _ in range(self.meta_batch_size)] 
+        conditioning_memories = [memory_buffer.sample(3) for _ in range(self.meta_batch_size)] 
         # first run second time step from each trace through target net, to construct targets
         c_observations = np.array([x[1][0] for x in conditioning_memories])
+        ns_observations = np.array([x[2][0] for x in conditioning_memories])
         c_actions = np.array([x[1][1] for x in conditioning_memories], np.int32)
         c_rewards = np.array([x[1][2] for x in conditioning_memories])
         feed_dict = {
             self.action_ph: c_actions,
             self.reward_ph: c_rewards,
             self.input_ph: c_observations,
+            self.next_state_ph: ns_observations,
             self.task_index_ph: np.array([task_index], dtype=np.int32),
             self.guess_mask_ph: np.ones([len(c_actions)], 
                                         np.bool),
@@ -685,6 +704,7 @@ class EML_DQN_agent(random_agent):
 
         # now run the time step before, and train
         c_observations = np.array([x[0][0] for x in conditioning_memories])
+        ns_observations = np.array([x[1][0] for x in conditioning_memories])
         c_actions = np.array([x[0][1] for x in conditioning_memories], np.int32)
         c_rewards = np.array([x[0][2] for x in conditioning_memories])
 
@@ -693,6 +713,7 @@ class EML_DQN_agent(random_agent):
             self.action_ph: c_actions,
             self.reward_ph: c_rewards,
             self.input_ph: c_observations,
+            self.next_state_ph: ns_observations,
             self.task_index_ph: np.array([task_index], dtype=np.int32),
             self.guess_mask_ph: np.concatenate([np.ones([len(c_actions) // 2], 
                                                         np.bool),
