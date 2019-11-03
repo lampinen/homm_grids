@@ -28,8 +28,8 @@ config = {
                   'pick_up_red_blue_True_False', 'pick_up_red_blue_True_True'],#, 'shooter_green_purple_True_False', 'shooter_green_purple_True_True', 'shooter_yellow_teal_True_False', 'shooter_yellow_teal_True_True'], 
     'meta_tasks': ["switch_colors"],#, "switch_left_right"],  # if re-enabled, must fix so shooter is understandable 
     'num_epochs': 1000000,
-    'combined_emb_guess_weight': 0., 
-    'emb_match_loss_weight': 0.,  # weight on the loss that tries to match the
+    'combined_emb_guess_weight': "varied", 
+    'emb_match_loss_weight': 0.5,  # weight on the loss that tries to match the
                                   # embedding guess and cache
     'play_cached': False, # if true, use a cached embedding to play 
                          # (for efficiency)
@@ -38,7 +38,7 @@ config = {
     'softmax_policy': True, # if true, sample actions from probs, else greedy
     'optimizer': 'RMSProp',
     'init_lr': 5e-5,
-    'init_meta_lr': 2e-6,
+    'init_meta_lr': 5e-6,
     'lr_decay': 0.9,
     'meta_lr_decay': 0.95,
     'epsilon_decrease': 0.03,
@@ -50,8 +50,9 @@ config = {
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 30000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_59/',
+    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_65/',
 }
+config['meta_tasks'] += ["change_%s_%s_to_%s_%s" %(cs1[0], cs1[1], cs2[0], cs2[1]) for cs1 in config['color_pairs'] for cs2 in config['color_pairs'] if cs1 != cs2]
 
 def _save_config(filename, config):
     with open(filename, "w") as fout:
