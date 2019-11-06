@@ -17,7 +17,7 @@ config = {
     'H_num_hidden_layers': 3,
     'internal_nonlinearity': tf.nn.leaky_relu,
     'meta_max_pool': True, # max or average across examples
-    'num_actions': 5,
+    'num_actions': 8,
     'softmax_beta': 8.,
     'discount': 0.85,
     'meta_batch_size': 128, # how many examples the meta-net is conditioned on
@@ -26,7 +26,7 @@ config = {
     'color_pairs': [('red', 'blue'), ('green', 'purple'), ('yellow', 'teal')], # good, bad
     'hold_outs': ['shooter_red_blue_True_False', 'shooter_red_blue_True_True',
                   'pick_up_red_blue_True_False', 'pick_up_red_blue_True_True'],#, 'shooter_green_purple_True_False', 'shooter_green_purple_True_True', 'shooter_yellow_teal_True_False', 'shooter_yellow_teal_True_True'], 
-    'meta_tasks': ["switch_colors"],#, "switch_left_right"],  # if re-enabled, must fix so shooter is understandable 
+    'meta_tasks': ["switch_colors"],#, "switch_left_right"],
     'num_epochs': 1000000,
     'combined_emb_guess_weight': "varied", 
     'emb_match_loss_weight': 0.5,  # weight on the loss that tries to match the
@@ -50,7 +50,7 @@ config = {
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 30000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_67/',
+    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_68/',
 }
 config['meta_tasks'] += ["change_%s_%s_to_%s_%s" %(cs1[0], cs1[1], cs2[0], cs2[1]) for cs1 in config['color_pairs'] for cs2 in config['color_pairs'] if cs1 != cs2]
 
