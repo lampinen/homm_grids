@@ -22,9 +22,10 @@ config = {
     'discount': 0.85,
     'meta_batch_size': 128, # how many examples the meta-net is conditioned on
                             # for base training.
-    'game_types': ['pick_up', 'shooter'], 
+    'game_types': ['pick_up', 'pusher', 'shooter'], 
     'color_pairs': [('red', 'blue'), ('green', 'purple'), ('yellow', 'cyan'), ('pink', 'ocean'), ('forest', 'orange')], # good, bad
     'hold_outs': ['shooter_red_blue_True_False', 'shooter_red_blue_True_True',
+                  'pusher_red_blue_True_False', 'pusher_red_blue_True_True',
                   'pick_up_red_blue_True_False', 'pick_up_red_blue_True_True'],#, 'shooter_green_purple_True_False', 'shooter_green_purple_True_True', 'shooter_yellow_teal_True_False', 'shooter_yellow_teal_True_True'], 
     'meta_tasks': ["switch_colors"],#, "switch_left_right"],
     'num_epochs': 1000000,
@@ -50,9 +51,9 @@ config = {
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 30000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_68/',
+    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_69/',
 }
-config['meta_tasks'] += ["change_%s_%s_to_%s_%s" %(cs1[0], cs1[1], cs2[0], cs2[1]) for cs1 in config['color_pairs'] for cs2 in config['color_pairs'] if cs1 != cs2]
+#config['meta_tasks'] += ["change_%s_%s_to_%s_%s" %(cs1[0], cs1[1], cs2[0], cs2[1]) for cs1 in config['color_pairs'] for cs2 in config['color_pairs'] if cs1 != cs2]
 
 def _save_config(filename, config):
     with open(filename, "w") as fout:
