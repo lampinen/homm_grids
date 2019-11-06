@@ -67,8 +67,6 @@ COLOURS.update({
     WALL_CHAR: (0.5, 0.5, 0.5),
     })
 
-META_MAPPINGS = ["switched_colors", "switched_left_right"]
-
 def make_game(game_type, good_color, bad_color, switched_colors=False):
     if switched_colors:
         good_color, bad_color = bad_color, good_color  # switcheroo
