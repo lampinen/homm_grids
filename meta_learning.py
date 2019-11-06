@@ -38,7 +38,7 @@ config = {
     'softmax_policy': True, # if true, sample actions from probs, else greedy
     'optimizer': 'RMSProp',
     'init_lr': 5e-5,
-    'init_meta_lr': 5e-6,
+    'init_meta_lr': 3e-6,
     'lr_decay': 0.9,
     'meta_lr_decay': 0.95,
     'epsilon_decrease': 0.03,
@@ -50,7 +50,7 @@ config = {
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 30000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_65/',
+    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_67/',
 }
 config['meta_tasks'] += ["change_%s_%s_to_%s_%s" %(cs1[0], cs1[1], cs2[0], cs2[1]) for cs1 in config['color_pairs'] for cs2 in config['color_pairs'] if cs1 != cs2]
 
