@@ -33,14 +33,19 @@ BG_CHAR = ' '
 AGENT_CHAR = 'A'
 WALL_CHAR = '#'
 
-letters = [chr(i) for i in range(97, 97 + 26)]
+letters = [chr(i) for i in list(range(97, 97 + 26)) + list(range(66, 66 + 25))] # omit 'A', used for agent
+
 BASE_COLOURS = {
     "red": (1., 0., 0.),
     "green": (0., 1., 0.),
     "blue": (0., 0., 1.),
     "yellow": (1., 1, 0.),
-    "purple": (1., 0., 1.),
-    "teal": (0., 1., 1.),
+    "pink": (1., 0.3, 1.),
+    "cyan": (0., 1., 1.),
+    "purple": (0.5, 0., 0.6),
+    "ocean": (0.1, 0.4, 0.5),
+    "orange": (1., 0.6, 0.),
+    "forest": (0., 0.5, 0.),
 }
 
 BASE_SHAPES = ["square", "diamond", "triangle"]
@@ -470,7 +475,7 @@ class Environment(object):
 
 def main(argv=()):
     np.random.seed(0)
-    env = Environment(GameDef("shooter", "red", "blue", False, False))
+    env = Environment(GameDef("shooter", "pink", "ocean", False, False))
     obs, r, done = env.reset()
     plot.imshow(obs)
     plot.savefig("first.png")
