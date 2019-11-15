@@ -28,9 +28,9 @@ config = {
                   'pusher_red_blue_True_False', 'pusher_red_blue_True_True',
                   'pick_up_red_blue_True_False', 'pick_up_red_blue_True_True'],#, 'shooter_green_purple_True_False', 'shooter_green_purple_True_True', 'shooter_yellow_teal_True_False', 'shooter_yellow_teal_True_True'], 
     'meta_tasks': ["switch_colors"],#, "switch_left_right"],
-    'num_epochs': 1000000,
+    'num_epochs': 2000000,
     'combined_emb_guess_weight': "varied", 
-    'emb_match_loss_weight': 0.5,  # weight on the loss that tries to match the
+    'emb_match_loss_weight': 0.33,  # weight on the loss that tries to match the
                                   # embedding guess and cache
     'play_cached': False, # if true, use a cached embedding to play 
                          # (for efficiency)
@@ -38,20 +38,20 @@ config = {
     'print_eval_Qs': False, # for debugging
     'softmax_policy': True, # if true, sample actions from probs, else greedy
     'optimizer': 'RMSProp',
-    'init_lr': 5e-5,
-    'init_meta_lr': 3e-6,
+    'init_lr': 3e-5,
+    'init_meta_lr': 1e-6,
     'lr_decay': 0.9,
     'meta_lr_decay': 0.95,
     'epsilon_decrease': 0.03,
     'min_epsilon': 0.15,
-    'lr_decays_every': 30000,
+    'lr_decays_every': 50000,
     'min_lr': 1e-8,
     'min_meta_lr': 1e-8,
     'play_every': 1500, # how many epochs between plays
     'eval_every': 4000, # how many epochs between evals
-    'update_target_network_every': 30000, # how many epochs between updates to the target network
+    'update_target_network_every': 10000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_69/',
+    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_75/',
 }
 #config['meta_tasks'] += ["change_%s_%s_to_%s_%s" %(cs1[0], cs1[1], cs2[0], cs2[1]) for cs1 in config['color_pairs'] for cs2 in config['color_pairs'] if cs1 != cs2]
 
