@@ -548,6 +548,12 @@ class EML_DQN_agent(random_agent):
     def update_target_network(self):
         self.sess.run(self.update_target_op)
 
+    def save_parameters(self, filename):
+        self.saver.save(self.sess, filename)
+
+    def restore_parameters(self, filename):
+        self.saver.restore(self.sess, filename)
+
     def fill_memory_buffers(self, environments, num_data_points=500,
                             random=True):
         if random:
