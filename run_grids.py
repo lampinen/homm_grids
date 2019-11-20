@@ -4,6 +4,7 @@ from copy import deepcopy
 
 import numpy as np
 import tensorflow as tf
+import tensorflow.contrib.slim as slim
 
 from HoMM import HoMM_model
 from HoMM.configs import default_run_config, default_architecture_config
@@ -21,7 +22,7 @@ run_config.update({
                   "pusher_red_blue_True_False", "pusher_red_blue_True_True",
                   "pick_up_red_blue_True_False", "pick_up_red_blue_True_True"], 
 
-    "meta_mappings": ["switch_colors"]
+    "meta_mappings": ["switch_colors"],
 
     "softmax_beta": 8,
     "softmax_policy": True,
@@ -76,7 +77,7 @@ architecture_config.update({
 })
 
 # architecture 
-def vision(processed_input, reuse=True):
+def vision(processed_input, z_dim, reuse=False):
     vh = processed_input
     print(vh)
     with tf.variable_scope("vision", reuse=reuse):
@@ -94,7 +95,7 @@ def vision(processed_input, reuse=True):
             print(vh)
         vh = slim.flatten(vh)
         print(vh)
-        vision_out = slim.fully_connected(vh, config["z_dim"],
+        vision_out = slim.fully_connected(vh, z_dim,
                                           activation_fn=None)
         print(vision_out)
     return vision_out
@@ -136,7 +137,8 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
     def __init__(self, run_config=None):
         super(grids_HoMM_agent, self).__init__(
             architecture_config=architecture_config, run_config=run_config,
-            input_processor=vision)
+            input_processor=lambda processed_input: vision(
+                processed_input, self.architecture_config["z_dim"]))
 
         self.epsilon = run_config["epsilon"]
         self.meta_holdout_size = architecture_config["meta_holdout_size"]
@@ -164,6 +166,9 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
 
         train_environments = [e for e in environments if str(e) not in run_config["hold_outs"]]
         eval_environments = [e for e in environments if str(e) in run_config["hold_outs"]]
+        
+        train_environment_defs = [e for e in environment_defs if str(e) not in run_config["hold_outs"]]
+        eval_environment_defs = [e for e in environment_defs if str(e) in run_config["hold_outs"]]
 
         self.base_train_tasks = train_environments 
         self.base_eval_tasks = eval_environments
@@ -181,8 +186,8 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         # set up the meta pairings 
         self.meta_pairings = meta_tasks.generate_meta_pairings(
             self.meta_map_train_tasks,
-            self.base_train_tasks,
-            self.base_eval_tasks)
+            train_environment_defs,
+            eval_environment_defs)
 
     def get_new_memory_buffer(self):
         return memory_buffer() 

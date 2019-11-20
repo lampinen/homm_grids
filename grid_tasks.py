@@ -13,9 +13,9 @@ from pycolab import human_ui
 from pycolab import things as plab_things
 from pycolab.prefab_parts import sprites as prefab_sprites
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plot
+#import matplotlib
+#matplotlib.use('Agg')
+#import matplotlib.pyplot as plot
 
 GRID_SIZE = 6  # should be even
 SCROLL_SIZE = 2 * GRID_SIZE + 1
