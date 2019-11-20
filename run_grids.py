@@ -42,7 +42,11 @@ run_config.update({
     "update_target_network_every": 10000, # how many epochs between updates to the target network
 
     "discount": 0.85,
-
+    
+    "init_epsilon": 1.,  # exploration probability
+    "epsilon_decay": 0.05,  # additive decay
+    "min_epsilon": 0.15,
+    
     "persistent_task_reps": True,
     "combined_emb_guess_weight": "varied",
     "emb_match_loss_weight": 0.5,
@@ -56,6 +60,8 @@ architecture_config.update({
    "outcome_shape": [8 + 1],  
    "output_masking": True,
 
+   "separate_target_network": True,  # construct a separate network for e.g. Q-learning targets
+
     "IO_num_hidden": 128,
     "M_num_hidden": 1024,
     "H_num_hidden": 512,
@@ -66,10 +72,70 @@ architecture_config.update({
     "meta_batch_size": 128,
 })
 
+# architecture 
+def vision(processed_input, reuse=True):
+    vh = processed_input
+    print(vh)
+    with tf.variable_scope("vision", reuse=reuse):
+        for num_filt, kernel, stride in [[64,
+                                          grid_tasks.UPSAMPLE_SIZE,
+                                          grid_tasks.UPSAMPLE_SIZE],
+                                         [64, 4, 2],
+                                         [64, 3, 1]]:
+            vh = slim.conv2d(vh,
+                             num_outputs=num_filt,
+                             kernel_size=kernel,
+                             stride=stride,
+                             padding="VALID",
+                             activation_fn=tf.nn.relu)
+            print(vh)
+        vh = slim.flatten(vh)
+        print(vh)
+        vision_out = slim.fully_connected(vh, config["z_dim"],
+                                          activation_fn=None)
+        print(vision_out)
+    return vision_out
+
+
+# memory buffer
+class memory_buffer(object):
+    """An object that holds traces, controls length, and allows samples."""
+    def __init__(self, max_length=1000, drop_size=100):
+       self.buffer = []
+       self.length = 0
+       self.max_length = max_length
+       self.drop_size = drop_size
+
+    def add(self, experience):
+        self.buffer.append(experience)
+        self.length += 1
+        if self.length >= self.max_length:
+            self.length -= self.drop_size
+            self.buffer = self.buffer[self.drop_size:]
+
+    def end_experience(self):
+        self.add("EOE")
+
+    def sample(self, trace_length=2):
+        while True:
+            index = np.random.randint(self.length - trace_length + 1)
+            result = self.buffer[index:index + trace_length]
+            for i in range(trace_length):
+                if result[i] == "EOE":
+                    break
+            else:
+                # success!
+                return result
+
+
+
 class grids_HoMM_agent(HoMM_model.HoMM_model):
     def __init__(self, run_config=None):
         super(grids_HoMM_agent, self).__init__(
-            architecture_config=architecture_config, run_config=run_config)
+            architecture_config=architecture_config, run_config=run_config,
+            input_processor=vision)
+
+        self.epsilon = run_config["epsilon"]
 
     def _pre_build_calls(self):
         run_config = self.run_config
@@ -113,8 +179,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
             self.base_eval_tasks)
 
     def get_new_memory_buffer(self):
-        """Can be overriden by child"""
-
+        return memory_buffer() 
 
     def _pre_loss_calls(self):
         self.base_output_softmax = tf.nn.softmax(
@@ -126,10 +191,61 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         self.base_cached_emb_output_softmax = tf.nn.softmax(
             self.run_config["softmax_beta"] * self.base_cached_emb_unmasked_output)
 
-    def fill_buffers(self, num_data_points=1024):
+    def fill_buffers(self, num_data_points=1024, random=False):
         """Add new "experiences" to memory buffers."""
+        if random:
+            curr_epsilon = self.epsilon
+            self.epsilon = 1.
 
-    def play_games(self, num_turns=1, epsilon=0.):
+        for task in self.base_train_tasks + self.base_eval_tasks:
+            steps = 0.
+            while steps < num_data_points:
+                _, step, _ = self.play(task, max_steps=num_data_points - steps)
+                steps += step
+
+        if random:
+            self.epsilon = curr_epsilon
+        
+    def other_decays(self):
+        if self.epsilon > self.run_config["min_epsilon"]:
+            self.epsilon -= self.run_config["epsilon_decay"]
+
+    def play(self, environment, max_steps=1e5, remember=True,
+             cached=False, from_embedding=None, print_Qs=False):
+        (environment_name,
+         memory_buffer,
+         env_index) = self.base_task_lookup(environment)
+        step = 0
+        done = False
+        total_return = 0.
+        obs, _, _ = environment.reset()
+
+        while (not done and step < max_steps):
+            step += 1
+            conditioning_obs = obs
+            if from_embedding is not None:
+                action = self.choose_action(environment, conditioning_obs,
+                                            cached=False,
+                                            from_embedding=from_embedding,
+                                            print_Qs=print_Qs)
+            else:
+                action = self.choose_action(environment, conditioning_obs,
+                                            cached=cached,
+                                            print_Qs=print_Qs)
+            this_reward = 0.
+            obs, r, done = environment.step(action)
+            this_reward += r
+            total_return += this_reward
+
+            if remember:
+                memory_buffer.add((conditioning_obs,
+                                   action,
+                                   this_reward))
+
+        if remember:
+            memory_buffer.end_experience()
+
+        return done, step, total_return
 
     def build_feed_dict(self, task, lr=None, fed_embedding=None,
                         call_type="base_standard_train"):
