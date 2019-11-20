@@ -70,6 +70,7 @@ architecture_config.update({
     "optimizer": "RMSProp",
 
     "meta_batch_size": 128,
+    "meta_holdout_size": 32,
 })
 
 # architecture 
@@ -136,6 +137,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
             input_processor=vision)
 
         self.epsilon = run_config["epsilon"]
+        self.meta_holdout_size = architecture_config["meta_holdout_size"]
 
     def _pre_build_calls(self):
         run_config = self.run_config
@@ -247,29 +249,124 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
 
         return done, step, total_return
 
-    def build_feed_dict(self, task, lr=None, fed_embedding=None,
+    def outcome_and_mask_creator(self, memories):
+        actions = np.array([x[1] for x in memories], np.int32)
+        rewards = np.array([x[2] for x in memories])
+        outcomes = np.zeros([len(memory_steps)] + self.outcome_shape,
+                            dtype=np.float32)
+        outcomes[range(len(actions)), actions] = 1.
+        outcomes[:, -1] = rewards
+        return outcomes
+
+    def build_feed_dict(self, task, lr=None, fed_embedding=None, inference_observation=None,
                         call_type="base_standard_train"):
         """Build a feed dict."""
-        feed_dict = super(grids_HoMM_agent, self).build_feed_dict(
-            task=task, lr=lr, fed_embedding=fed_embedding, call_type=call_type)
-
-        base_or_meta, call_type, train_or_eval = call_type.split("_")
-
         if base_or_meta == "base":
-            outcomes = feed_dict[self.base_target_ph]
-            if call_type == "standard" or train_or_eval == "eval" or not self.architecture_config["persistent_task_reps"]: 
-                feed_dict[self.base_outcome_ph] = outcomes 
-            targets, target_mask = self._outcomes_to_targets(outcomes)
-            feed_dict[self.base_target_ph] = targets 
-            feed_dict[self.base_target_mask_ph] = target_mask
+            base_or_meta, call_type, train_or_eval = call_type.split("_")
+            feed_dict = {}
 
-        fsdklgjfklgjfkl()
+            if base_or_meta == "base":
+                task_name, memory_buffer, task_index = self.base_task_lookup(task)
+                memories = [memory_buffer.sample(2) for _ in range(self.meta_batch_size + self.meta_holdout_size)]
+
+                if train_or_eval != "inference":
+                    # first need to run inference to get targets
+                    target_memories = [x[1] for x in memories] 
+                    target_feed_dict = {}
+
+                    target_feed_dict[self.task_index_ph] = [task_index]
+                    target_feed_dict[self.base_outcome_ph] = self.outcome_creator(target_memories) 
+                    target_feed_dict[self.base_input_ph] = np.array([x[0] for x in target_memories]) 
+                    target_feed_dict[self.guess_input_mask_ph] = np.ones([len(target_memories)], np.bool) 
+
+                    next_Qs =  self.sess.run(self.base_output_tn,
+                                             feed_dict=target_feed_dict)
+
+                    # now build actual feed dict
+                    prior_memories = [x[1] for x in memories] 
+                    outcomes = self.outcome_creator(prior_memories)
+
+                elif call_type == "standard": 
+                    prior_memories = [memory_buffer.sample(1) for _ in range(self.meta_batch_size)]
+                    outcomes = self.outcome_creator(prior_memories)
+
+                if train_or_eval != "inference":
+                    feed_dict[self.base_outcome_ph] = outcomes 
+
+                    feed_dict[self.base_input_ph] = np.array([x[0] for x in prior_memories])
+                    rewards = outcomes[:, -1] 
+                    target_values = self.discount * np.amax(next_Qs, axis=-1) + rewards
+
+                    targets = np.zeros(output_mask.shape, dtype=np.float32)
+                    targets[output_mask] = target_values 
+
+                    output_mask = outcomes[:, :self.outcome_shape[0] - 1].astype(np.bool)
+                    feed_dict[self.base_target_mask_ph] = output_mask 
+
+                    feed_dict[self.base_target_ph] = targets 
+                    feed_dict[self.guess_input_mask_ph] = self._random_guess_mask(
+                        len(outputs))
+                elif call_type == "standard":
+                    guess_mask = np.ones([len(target_memories) + 1], np.bool) 
+                    guess_mask[-1] = 0.
+                    target_feed_dict[self.guess_input_mask_ph] = guess_mask
+
+                    feed_dict[self.base_outcome_ph] = outcomes 
+
+                    inputs = [x[0] for x in prior_memories] + [inference_observation]
+                    feed_dict[self.base_input_ph] = np.array(inputs)
+                else:
+                    feed_dict[self.base_input_ph] = np.array([inference_observation])
+                
+                if call_type == "fed":
+                    if len(fed_embedding.shape) == 1:
+                        fed_embedding = np.expand_dims(fed_embedding, axis=0)
+                    feed_dict[self.feed_embedding_ph] = fed_embedding
+                elif call_type == "lang":
+                    feed_dict[self.language_input_ph] = self.intify_task(task_name)
+
+                if call_type == "cached" or self.architecture_config["persistent_task_reps"]:
+                    feed_dict[self.task_index_ph] = [task_index]
+
+                if train_or_eval == "train":
+                    feed_dict[self.lr_ph] = lr
+                    feed_dict[self.keep_prob_ph] = self.tkp
+                    if call_type == "lang":
+                        feed_dict[self.lang_keep_prob_ph] = self.lang_keep_prob
+                else:
+                    feed_dict[self.keep_prob_ph] = 1.
+                    if call_type == "lang":
+                        feed_dict[self.lang_keep_prob_ph] = 1.
+
+        else:  # meta dicts are the same
+            feed_dict = super(grids_HoMM_agent, self).build_feed_dict(
+                task=task, lr=lr, fed_embedding=fed_embedding, call_type=call_type)
+
 
         return feed_dict
+
+    def choose_action(self, task, observation, cached=False, from_embedding=None):
+        if np.random.random() < self.epsilon:
+             return task.sample_action()
+
+        call_str = "base_%s_inference"
+        if cached:
+            call_type == "cached"
+        elif from_embedding is not None:
+            call_type == "fed"
+        else:
+            call_type == "standard"
+        call_str = call_str % call_type
+
+        feed_dict = self.build_feed_dict(
+            task, inference_observation=observation,
+            fed_embedding=from_embedding, call_type=call_str)
 
     def base_eval(self, task, train_or_eval):
 
     def base_embedding_eval(self, embedding, task):
+
+
 
 
 ## stuff
