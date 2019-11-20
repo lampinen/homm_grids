@@ -24,6 +24,7 @@ run_config.update({
     "meta_mappings": ["switch_colors"]
 
     "softmax_beta": 8,
+    "softmax_policy": True,
 
     "init_learning_rate": 3e-5,
     "init_meta_learning_rate": 1e-6,
@@ -37,6 +38,7 @@ run_config.update({
 
     "num_epochs": 1000000,
     "eval_every": 4000,
+    "num_games_per_eval": 10,
     "refresh_mem_buffs_every": 1500,
 
     "update_target_network_every": 10000, # how many epochs between updates to the target network
@@ -138,6 +140,8 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
 
         self.epsilon = run_config["epsilon"]
         self.meta_holdout_size = architecture_config["meta_holdout_size"]
+        self.softmax_policy = run_config["softmax_policy"]
+        self.num_games_per_eval = self.run_config["num_games_per_eval"]
 
     def _pre_build_calls(self):
         run_config = self.run_config
@@ -208,11 +212,15 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         if random:
             self.epsilon = curr_epsilon
         
-    def other_decays(self):
-        if self.epsilon > self.run_config["min_epsilon"]:
-            self.epsilon -= self.run_config["epsilon_decay"]
+    def end_epoch_calls(self, epoch):
+        if epoch % self.lr_decays_every == 0 and epoch > 0:
+            if self.epsilon > self.run_config["min_epsilon"]:
+                self.epsilon -= self.run_config["epsilon_decay"]
 
-    def play(self, environment, max_steps=1e5, remember=True,
+        if epoch % self.update_target_network_every == 0 and epoch > 0:
+            self.sess.run(self.update_target_network_op)
+
+    def play(self, environment, max_steps=1e4, remember=True,
              cached=False, from_embedding=None, print_Qs=False):
         (environment_name,
          memory_buffer,
@@ -361,13 +369,59 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         feed_dict = self.build_feed_dict(
             task, inference_observation=observation,
             fed_embedding=from_embedding, call_type=call_str)
+        if from_embedding is not None:
+            action_probs = self.sess.run(
+                self.base_fed_emb_output_softmax,
+                feed_dict=feed_dict)
+        elif cached:
+            action_probs = self.sess.run(
+                self.base_cached_emb_output_softmax,
+                feed_dict=feed_dict)
+        else: # will need to remember experiences
+            action_probs = self.sess.run(
+                self.base_output_softmax,
+                feed_dict=feed_dict)
+
+        action_probs = action_probs[-1, :]
+        print(action_probs.shape)
+        print(action_probs)
+        exit()
+        if self.softmax_policy:
+            action = np.random.choice(len(action_probs),
+                                      p=action_probs)
+        else:
+            action = np.argmax(action_probs)
+
+        return action
 
     def base_eval(self, task, train_or_eval):
+        returns = np.zeros(self.num_games_per_eval)
+
+        for game_i in range(self.num_games_per_eval):
+            _, _, total_return = self.play(e,
+                                           remember=False,
+                                           cached=True)
+            returns[game_i] = this_return
+
+        return [task + "_mean_rewards"], np.mean(returns)
 
     def base_embedding_eval(self, embedding, task):
+        returns = np.zeros(self.num_games_per_eval)
 
+        for game_i in range(self.num_games_per_eval):
+            _, _, total_return = self.play(e,
+                                           remember=False,
+                                           cached=False,
+                                           from_embedding=embedding)
+            returns[game_i] = this_return
 
+        return np.mean(returns)
 
+    def run_eval(self):
+        current_epsilon = self.epsilon
+        self.epsilon = 0.
+        super(grids_HoMM_agent, self).run_eval()
+        self.epsilon = current_epsilon
 
 ## stuff
 for run_i in range(run_config["num_runs"]):
