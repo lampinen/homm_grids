@@ -135,15 +135,17 @@ class memory_buffer(object):
 
 class grids_HoMM_agent(HoMM_model.HoMM_model):
     def __init__(self, run_config=None):
+        self.epsilon = run_config["init_epsilon"]
+        self.discount = run_config["discount"]
+        self.meta_holdout_size = architecture_config["meta_holdout_size"]
+        self.outcome_shape = architecture_config["outcome_shape"]
+        self.softmax_policy = run_config["softmax_policy"]
+        self.num_games_per_eval = run_config["num_games_per_eval"]
         super(grids_HoMM_agent, self).__init__(
             architecture_config=architecture_config, run_config=run_config,
             input_processor=lambda processed_input: vision(
                 processed_input, self.architecture_config["z_dim"]))
 
-        self.epsilon = run_config["epsilon"]
-        self.meta_holdout_size = architecture_config["meta_holdout_size"]
-        self.softmax_policy = run_config["softmax_policy"]
-        self.num_games_per_eval = self.run_config["num_games_per_eval"]
 
     def _pre_build_calls(self):
         run_config = self.run_config
@@ -241,12 +243,10 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
             if from_embedding is not None:
                 action = self.choose_action(environment, conditioning_obs,
                                             cached=False,
-                                            from_embedding=from_embedding,
-                                            print_Qs=print_Qs)
+                                            from_embedding=from_embedding)
             else:
                 action = self.choose_action(environment, conditioning_obs,
-                                            cached=cached,
-                                            print_Qs=print_Qs)
+                                            cached=cached)
             this_reward = 0.
             obs, r, done = environment.step(action)
             this_reward += r
@@ -262,10 +262,10 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
 
         return done, step, total_return
 
-    def outcome_and_mask_creator(self, memories):
+    def outcome_creator(self, memories, inference_observation=None):
         actions = np.array([x[1] for x in memories], np.int32)
         rewards = np.array([x[2] for x in memories])
-        outcomes = np.zeros([len(memory_steps)] + self.outcome_shape,
+        outcomes = np.zeros([len(memories)] + self.outcome_shape,
                             dtype=np.float32)
         outcomes[range(len(actions)), actions] = 1.
         outcomes[:, -1] = rewards
@@ -274,8 +274,8 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
     def build_feed_dict(self, task, lr=None, fed_embedding=None, inference_observation=None,
                         call_type="base_standard_train"):
         """Build a feed dict."""
+        base_or_meta, call_type, train_or_eval = call_type.split("_")
         if base_or_meta == "base":
-            base_or_meta, call_type, train_or_eval = call_type.split("_")
             feed_dict = {}
 
             if base_or_meta == "base":
@@ -299,10 +299,6 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
                     prior_memories = [x[1] for x in memories] 
                     outcomes = self.outcome_creator(prior_memories)
 
-                elif call_type == "standard": 
-                    prior_memories = [memory_buffer.sample(1) for _ in range(self.meta_batch_size)]
-                    outcomes = self.outcome_creator(prior_memories)
-
                 if train_or_eval != "inference":
                     feed_dict[self.base_outcome_ph] = outcomes 
 
@@ -310,16 +306,19 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
                     rewards = outcomes[:, -1] 
                     target_values = self.discount * np.amax(next_Qs, axis=-1) + rewards
 
-                    targets = np.zeros(output_mask.shape, dtype=np.float32)
-                    targets[output_mask] = target_values 
-
                     output_mask = outcomes[:, :self.outcome_shape[0] - 1].astype(np.bool)
                     feed_dict[self.base_target_mask_ph] = output_mask 
 
+                    targets = np.zeros(output_mask.shape, dtype=np.float32)
+                    targets[output_mask] = target_values 
+
                     feed_dict[self.base_target_ph] = targets 
                     feed_dict[self.guess_input_mask_ph] = self._random_guess_mask(
-                        len(outputs))
+                        len(outcomes))
                 elif call_type == "standard":
+                    prior_memories = [memory_buffer.sample(1) for _ in range(self.meta_batch_size)]
+                    outcomes = self.outcome_creator(prior_memories + [(inference_observation, 0, 0.)])
+
                     guess_mask = np.ones([len(target_memories) + 1], np.bool) 
                     guess_mask[-1] = 0.
                     target_feed_dict[self.guess_input_mask_ph] = guess_mask
