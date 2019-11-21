@@ -38,21 +38,17 @@ run_config.update({
     "min_meta_learning_rate": 1e-8,
 
     "num_epochs": 1000000,
-    "eval_every": 4000,
+    "eval_every": 10, #4000,
     "num_games_per_eval": 10,
-    "refresh_mem_buffs_every": 1500,
+    "refresh_mem_buffs_every": 5, #1500,
 
-    "update_target_network_every": 10000, # how many epochs between updates to the target network
+    "update_target_network_every": 20, #10000, # how many epochs between updates to the target network
 
     "discount": 0.85,
     
     "init_epsilon": 1.,  # exploration probability
     "epsilon_decay": 0.05,  # additive decay
     "min_epsilon": 0.15,
-    
-    "persistent_task_reps": True,
-    "combined_emb_guess_weight": "varied",
-    "emb_match_loss_weight": 0.5,
 })
 
 architecture_config = default_architecture_config.default_architecture_config
@@ -74,6 +70,10 @@ architecture_config.update({
 
     "meta_batch_size": 128,
     "meta_holdout_size": 32,
+    
+    "persistent_task_reps": True,
+    "combined_emb_guess_weight": "varied",
+    "emb_match_loss_weight": 0.5,
 })
 
 # architecture 
@@ -141,6 +141,8 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         self.outcome_shape = architecture_config["outcome_shape"]
         self.softmax_policy = run_config["softmax_policy"]
         self.num_games_per_eval = run_config["num_games_per_eval"]
+        self.lr_decays_every = run_config["lr_decays_every"]
+        self.update_target_network_every = run_config["update_target_network_every"]
         super(grids_HoMM_agent, self).__init__(
             architecture_config=architecture_config, run_config=run_config,
             input_processor=lambda processed_input: vision(
@@ -232,6 +234,8 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         (environment_name,
          memory_buffer,
          env_index) = self.base_task_lookup(environment)
+        if isinstance(environment, str):
+            environment = self.env_str_to_task[environment]
         step = 0
         done = False
         total_return = 0.
@@ -274,6 +278,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
     def build_feed_dict(self, task, lr=None, fed_embedding=None, inference_observation=None,
                         call_type="base_standard_train"):
         """Build a feed dict."""
+        original_call_type = call_type
         base_or_meta, call_type, train_or_eval = call_type.split("_")
         if base_or_meta == "base":
             feed_dict = {}
@@ -352,7 +357,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
 
         else:  # meta dicts are the same
             feed_dict = super(grids_HoMM_agent, self).build_feed_dict(
-                task=task, lr=lr, fed_embedding=fed_embedding, call_type=call_type)
+                task=task, lr=lr, fed_embedding=fed_embedding, call_type=original_call_type)
 
 
         return feed_dict
@@ -363,11 +368,11 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
 
         call_str = "base_%s_inference"
         if cached:
-            call_type == "cached"
+            call_type = "cached"
         elif from_embedding is not None:
-            call_type == "fed"
+            call_type = "fed"
         else:
-            call_type == "standard"
+            call_type = "standard"
         call_str = call_str % call_type
 
         feed_dict = self.build_feed_dict(
@@ -387,9 +392,6 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
                 feed_dict=feed_dict)
 
         action_probs = action_probs[-1, :]
-        print(action_probs.shape)
-        print(action_probs)
-        exit()
         if self.softmax_policy:
             action = np.random.choice(len(action_probs),
                                       p=action_probs)
@@ -402,29 +404,30 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         returns = np.zeros(self.num_games_per_eval)
 
         for game_i in range(self.num_games_per_eval):
-            _, _, total_return = self.play(e,
+            _, _, total_return = self.play(task,
                                            remember=False,
                                            cached=True)
-            returns[game_i] = this_return
-
-        return [task + "_mean_rewards"], np.mean(returns)
+            returns[game_i] = total_return
+        task_name, _, _ = self.base_task_lookup(task)
+        return [task_name + "_mean_rewards"], [np.mean(returns)]
 
     def base_embedding_eval(self, embedding, task):
         returns = np.zeros(self.num_games_per_eval)
 
         for game_i in range(self.num_games_per_eval):
-            _, _, total_return = self.play(e,
+            _, _, total_return = self.play(task,
                                            remember=False,
                                            cached=False,
                                            from_embedding=embedding)
-            returns[game_i] = this_return
+            returns[game_i] = total_return
 
-        return np.mean(returns)
+        return [np.mean(returns)]
 
-    def run_eval(self):
+    def run_eval(self, epoch, print_losses=True):
         current_epsilon = self.epsilon
         self.epsilon = 0.
-        super(grids_HoMM_agent, self).run_eval()
+        super(grids_HoMM_agent, self).run_eval(epoch=epoch,
+                                               print_losses=print_losses)
         self.epsilon = current_epsilon
 
 ## stuff
