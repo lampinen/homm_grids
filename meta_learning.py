@@ -38,8 +38,8 @@ config = {
     'print_eval_Qs': False, # for debugging
     'softmax_policy': True, # if true, sample actions from probs, else greedy
     'optimizer': 'RMSProp',
-    'init_lr': 2e-5,
-    'init_meta_lr': 1e-6,
+    'init_lr': 5e-6,
+    'init_meta_lr': 3e-7,
     'lr_decay': 0.9,
     'meta_lr_decay': 0.95,
     'epsilon_decrease': 0.03,
@@ -51,7 +51,7 @@ config = {
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 10000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_80/',
+    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_83/',
 }
 #config['meta_tasks'] += ["change_%s_%s_to_%s_%s" %(cs1[0], cs1[1], cs2[0], cs2[1]) for cs1 in config['color_pairs'] for cs2 in config['color_pairs'] if cs1 != cs2]
 
@@ -167,7 +167,7 @@ with open(config['results_dir'] + 'base_losses.csv', 'w', buffering=1) as fout, 
             fout.write(results_format % tuple(results))
             print(results)
 
-            my_agent.save_parameters(config['results_dir'] + "checkpoint")
+            my_agent.save_parameters(config['results_dir'] + "latest_checkpoint")
 
         if epoch % config["lr_decays_every"] == 0:
             if current_lr > config["min_lr"]: 
