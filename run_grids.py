@@ -38,11 +38,11 @@ run_config.update({
     "min_meta_learning_rate": 1e-8,
 
     "num_epochs": 1000000,
-    "eval_every": 10, #4000,
+    "eval_every": 4000,
     "num_games_per_eval": 10,
-    "refresh_mem_buffs_every": 5, #1500,
+    "refresh_mem_buffs_every": 1500,
 
-    "update_target_network_every": 20, #10000, # how many epochs between updates to the target network
+    "update_target_network_every": 10000, # how many epochs between updates to the target network
 
     "discount": 0.85,
     
