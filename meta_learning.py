@@ -19,7 +19,8 @@ config = {
     'meta_max_pool': True, # max or average across examples
     'num_actions': 8,
     'softmax_beta': 8.,
-    'discount': 0.9,
+    'discount': 0.875,
+    'max_steps': 100,
     'meta_batch_size': 128, # how many examples the meta-net is conditioned on
                             # for base training.
     'game_types': ['pick_up', 'pusher', 'shooter'], 
@@ -38,20 +39,20 @@ config = {
     'print_eval_Qs': False, # for debugging
     'softmax_policy': True, # if true, sample actions from probs, else greedy
     'optimizer': 'RMSProp',
-    'init_lr': 5e-6,
-    'init_meta_lr': 3e-7,
+    'init_lr': 1e-4,
+    'init_meta_lr': 5e-6,
     'lr_decay': 0.9,
     'meta_lr_decay': 0.95,
     'epsilon_decrease': 0.03,
     'min_epsilon': 0.15,
-    'lr_decays_every': 50000,
-    'min_lr': 1e-8,
-    'min_meta_lr': 1e-8,
+    'lr_decays_every': 30000,
+    'min_lr': 1e-7,
+    'min_meta_lr': 1e-7,
     'play_every': 1500, # how many epochs between plays
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 10000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_83/',
+    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_87/',
 }
 #config['meta_tasks'] += ["change_%s_%s_to_%s_%s" %(cs1[0], cs1[1], cs2[0], cs2[1]) for cs1 in config['color_pairs'] for cs2 in config['color_pairs'] if cs1 != cs2]
 
@@ -74,7 +75,7 @@ for game_type in config["game_types"]:
                     switched_left_right=switched_left_right))
 
 config["games"] = [str(e) for e in environment_defs]
-environments = [grid_tasks.Environment(e) for e in environment_defs]
+environments = [grid_tasks.Environment(e, max_steps=config["max_steps"]) for e in environment_defs]
 
 train_environments = [e for e in environments if str(e) not in config["hold_outs"]]
 eval_environments = [e for e in environments if str(e) in config["hold_outs"]]
