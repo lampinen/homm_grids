@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "grids_with_library/",
+    "output_dir": "/mnt/fs4/lampinen/grids_with_library/results_0/",
 
     "game_types": ["pick_up", "pusher", "shooter"],
     "color_pairs": [("red", "blue"), ("green", "purple"), ("yellow", "cyan"), ("pink", "ocean"), ("forest", "orange")], # good, bad
