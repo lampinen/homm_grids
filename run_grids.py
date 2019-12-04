@@ -267,7 +267,11 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         return done, step, total_return
 
     def outcome_creator(self, memories, inference_observation=None):
-        actions = np.array([x[1] for x in memories], np.int32)
+        try:
+            actions = np.array([x[1] for x in memories], np.int32)
+        except IndexError as e:
+            print([x for x in memories if isinstance(x, str) or len(x) < 3])
+            raise e
         rewards = np.array([x[2] for x in memories])
         outcomes = np.zeros([len(memories)] + self.outcome_shape,
                             dtype=np.float32)
