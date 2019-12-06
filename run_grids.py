@@ -328,7 +328,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
                     prior_memories = [memory_buffer.sample(1)[0] for _ in range(self.meta_batch_size)]
                     outcomes = self.outcome_creator(prior_memories + [(inference_observation, 0, 0.)])
 
-                    guess_mask = np.ones([len(target_memories) + 1], np.bool) 
+                    guess_mask = np.ones([len(prior_memories) + 1], np.bool) 
                     guess_mask[-1] = 0.
                     target_feed_dict[self.guess_input_mask_ph] = guess_mask
 
