@@ -330,7 +330,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
 
                     guess_mask = np.ones([len(prior_memories) + 1], np.bool) 
                     guess_mask[-1] = 0.
-                    target_feed_dict[self.guess_input_mask_ph] = guess_mask
+                    feed_dict[self.guess_input_mask_ph] = guess_mask
 
                     feed_dict[self.base_outcome_ph] = outcomes 
 
