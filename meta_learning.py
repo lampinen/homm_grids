@@ -7,7 +7,7 @@ import grid_tasks
 from agents import random_agent, EML_DQN_agent
 
 config = {
-    'z_dim': 1024, # dimension of the latent embedding space Z
+    'z_dim': 512, # dimension of the latent embedding space Z
     'T_num_hidden': 128, # num hidden units in outcome (target) encoder
     'M_num_hidden': 1024, # num hidden in meta network
     'H_num_hidden': 512, # " " " hyper network
@@ -19,10 +19,11 @@ config = {
     'meta_max_pool': True, # max or average across examples
     'num_actions': 8,
     'softmax_beta': 8.,
-    'discount': 0.9,
+    'discount': 0.85,
+    'max_steps': 100,
     'meta_batch_size': 128, # how many examples the meta-net is conditioned on
                             # for base training.
-    'game_types': ['pick_up', 'pusher', 'shooter'], 
+    'game_types': ['pick_up', 'pusher'],#, 'shooter'], 
     'color_pairs': [('red', 'blue'), ('green', 'purple'), ('yellow', 'cyan'), ('pink', 'ocean'), ('forest', 'orange')], # good, bad
     'hold_outs': ['shooter_red_blue_True_False', 'shooter_red_blue_True_True',
                   'pusher_red_blue_True_False', 'pusher_red_blue_True_True',
@@ -38,20 +39,20 @@ config = {
     'print_eval_Qs': False, # for debugging
     'softmax_policy': True, # if true, sample actions from probs, else greedy
     'optimizer': 'RMSProp',
-    'init_lr': 2e-5,
-    'init_meta_lr': 1e-6,
+    'init_lr': 3e-5,
+    'init_meta_lr': 3e-6,
     'lr_decay': 0.9,
     'meta_lr_decay': 0.95,
     'epsilon_decrease': 0.03,
     'min_epsilon': 0.15,
-    'lr_decays_every': 50000,
-    'min_lr': 1e-8,
-    'min_meta_lr': 1e-8,
+    'lr_decays_every': 30000,
+    'min_lr': 1e-7,
+    'min_meta_lr': 1e-7,
     'play_every': 1500, # how many epochs between plays
     'eval_every': 4000, # how many epochs between evals
-    'update_target_network_every': 10000, # how many epochs between updates to the target network
+    'update_target_network_every': 15000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_80/',
+    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_92/',
 }
 #config['meta_tasks'] += ["change_%s_%s_to_%s_%s" %(cs1[0], cs1[1], cs2[0], cs2[1]) for cs1 in config['color_pairs'] for cs2 in config['color_pairs'] if cs1 != cs2]
 
@@ -74,7 +75,7 @@ for game_type in config["game_types"]:
                     switched_left_right=switched_left_right))
 
 config["games"] = [str(e) for e in environment_defs]
-environments = [grid_tasks.Environment(e) for e in environment_defs]
+environments = [grid_tasks.Environment(e, max_steps=config["max_steps"]) for e in environment_defs]
 
 train_environments = [e for e in environments if str(e) not in config["hold_outs"]]
 eval_environments = [e for e in environments if str(e) in config["hold_outs"]]
@@ -167,7 +168,7 @@ with open(config['results_dir'] + 'base_losses.csv', 'w', buffering=1) as fout, 
             fout.write(results_format % tuple(results))
             print(results)
 
-            my_agent.save_parameters(config['results_dir'] + "checkpoint")
+            my_agent.save_parameters(config['results_dir'] + "latest_checkpoint")
 
         if epoch % config["lr_decays_every"] == 0:
             if current_lr > config["min_lr"]: 
