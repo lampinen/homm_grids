@@ -42,11 +42,15 @@ result_subdirs = c(#"results_0",
                    #"results_68",
                    #"results_69", "results_70",
                    "results_71", #"results_72",
-                   "results_73", #"results_74", "results_75",
-                   "results_76", "results_77", "results_78",
-                   "results_79", "results_80",
-                   "results_81",
-                   "results_82", "results_83"
+                   #"results_73", #"results_74", "results_75",
+                   #"results_76", "results_77", "results_78",
+                   #"results_79", "results_80",
+                   #"results_81",
+                   #"results_82", "results_83",
+                   "results_84", "results_85",
+                   "results_86", #"results_87",
+                   "results_88",
+                   "results_89", "results_90", "results_91", "results_92"
                    
                    )
 
