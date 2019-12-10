@@ -13,12 +13,12 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/mnt/fs4/lampinen/grids_with_library/results_0/",
+    "output_dir": "/mnt/fs4/lampinen/grids_with_library/results_2/",
 
-    "game_types": ["pick_up", "pusher", "shooter"],
+    "game_types": ["pick_up", "pusher"],#, "shooter"], -- if reenabled, change num of actions
     "color_pairs": [("red", "blue"), ("green", "purple"), ("yellow", "cyan"), ("pink", "ocean"), ("forest", "orange")], # good, bad
 
-    "hold_outs": ["shooter_red_blue_True_False", "shooter_red_blue_True_True",
+    "hold_outs": [#"shooter_red_blue_True_False", "shooter_red_blue_True_True",
                   "pusher_red_blue_True_False", "pusher_red_blue_True_True",
                   "pick_up_red_blue_True_False", "pick_up_red_blue_True_True"], 
 
@@ -54,9 +54,9 @@ run_config.update({
 architecture_config = default_architecture_config.default_architecture_config
 architecture_config.update({
    "input_shape": [91, 91, 3],
-   "output_shape": [8],  
+   "output_shape": [4],  
 
-   "outcome_shape": [8 + 1],  
+   "outcome_shape": [4 + 1],  
    "output_masking": True,
 
    "separate_target_network": True,  # construct a separate network for e.g. Q-learning targets
@@ -166,7 +166,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
                             switched_colors=switched_colors,
                             switched_left_right=switched_left_right))
 
-        environments = [grid_tasks.Environment(e) for e in environment_defs]
+        environments = [grid_tasks.Environment(e, num_actions=4) for e in environment_defs]
 
         train_environments = [e for e in environments if str(e) not in run_config["hold_outs"]]
         eval_environments = [e for e in environments if str(e) in run_config["hold_outs"]]
