@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/mnt/fs4/lampinen/grids_with_library/results_2/",
+    "output_dir": "/mnt/fs4/lampinen/grids_with_library/results_0/",
 
     "game_types": ["pick_up", "pusher"],#, "shooter"], -- if reenabled, change num of actions
     "color_pairs": [("red", "blue"), ("green", "purple"), ("yellow", "cyan"), ("pink", "ocean"), ("forest", "orange")], # good, bad
@@ -64,16 +64,18 @@ architecture_config.update({
     "IO_num_hidden": 128,
     "M_num_hidden": 1024,
     "H_num_hidden": 512,
-    "z_dim": 1024,
+    "z_dim": 512,
     "F_num_hidden": 128,
     "optimizer": "RMSProp",
 
     "meta_batch_size": 128,
     "meta_holdout_size": 32,
+
+    "task_weight_weight_mult": 100.,  #???
     
     "persistent_task_reps": True,
     "combined_emb_guess_weight": "varied",
-    "emb_match_loss_weight": 0.5,
+    "emb_match_loss_weight": 0.2,
 })
 
 # architecture 
