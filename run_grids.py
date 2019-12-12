@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/mnt/fs4/lampinen/grids_with_library/results_0/",
+    "output_dir": "/mnt/fs4/lampinen/grids_with_library/results_1/",
 
     "game_types": ["pick_up", "pusher"],#, "shooter"], -- if reenabled, change num of actions
     "color_pairs": [("red", "blue"), ("green", "purple"), ("yellow", "cyan"), ("pink", "ocean"), ("forest", "orange")], # good, bad
@@ -27,8 +27,8 @@ run_config.update({
     "softmax_beta": 8,
     "softmax_policy": True,
 
-    "init_learning_rate": 3e-5,
-    "init_meta_learning_rate": 1e-6,
+    "init_learning_rate": 2e-5,
+    "init_meta_learning_rate": 2e-6,
 
     "lr_decay": 0.9,
     "meta_lr_decay": 0.95,
@@ -145,6 +145,9 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         self.num_games_per_eval = run_config["num_games_per_eval"]
         self.lr_decays_every = run_config["lr_decays_every"]
         self.update_target_network_every = run_config["update_target_network_every"]
+
+        self.best_eval_indices = None
+        self.best_eval_val = -np.inf 
         super(grids_HoMM_agent, self).__init__(
             architecture_config=architecture_config, run_config=run_config,
             input_processor=lambda processed_input: vision(
@@ -435,6 +438,16 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         super(grids_HoMM_agent, self).run_eval(epoch=epoch,
                                                print_losses=print_losses)
         self.epsilon = current_epsilon
+
+    def run_meta_true_eval(self):
+        names, losses = super(grids_HoMM_agent, self).run_meta_true_eval()
+        if self.best_eval_indices is None: 
+            self.best_eval_indices = np.core.defchararray.find(names, "eval") != -1
+        meta_eval_mean = np.mean(np.array(losses)[self.best_eval_indices])
+        if self.best_eval_val < meta_eval_mean:
+            self.best_eval_val = meta_eval_mean
+            self.save_parameters(self.run_config["output_dir"] + "best_eval_checkpoint")
+        return names, losses
 
 ## stuff
 for run_i in range(run_config["num_runs"]):
