@@ -40,19 +40,19 @@ config = {
     'softmax_policy': True, # if true, sample actions from probs, else greedy
     'optimizer': 'RMSProp',
     'init_lr': 3e-5,
-    'init_meta_lr': 3e-6,
+    'init_meta_lr': 1e-6,
     'lr_decay': 0.9,
     'meta_lr_decay': 0.95,
     'epsilon_decrease': 0.03,
     'min_epsilon': 0.15,
     'lr_decays_every': 30000,
-    'min_lr': 1e-7,
+    'min_lr': 3e-8,
     'min_meta_lr': 1e-7,
     'play_every': 1500, # how many epochs between plays
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 10000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_103/',
+    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_104/',
 
     'num_runs': 5,
     'run_offset': 0,
