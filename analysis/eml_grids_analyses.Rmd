@@ -47,13 +47,17 @@ result_subdirs = c(#"results_0",
                    #"results_79", "results_80",
                    #"results_81",
                    #"results_82", "results_83",
-                   "results_84", "results_85",
-                   "results_86", #"results_87",
-                   "results_88",
-                   "results_89", "results_90", "results_91", "results_92"
+                   #"results_84", "results_85",
+                   #"results_86", #"results_87",
+                   #"results_88",
+                   "results_89", "results_90", "results_91", "results_92",
+                   "results_93", "results_94", "results_95", "results_96"
                    
                    )
 
+newer_results_subdirs = c("results_100", "results_101", "results_102", "results_103")
+
+num_runs = 1
 ```
 
 # utils and setup
@@ -72,9 +76,19 @@ read_config = function(config_file) {
 ```{r}
 load_d = function(results_dir, result_subdirs, num_runs, file_type) {
   d = data.frame()
-#  for (run_i in 0:(num_runs-1)) {
+  if (num_runs == F) {
+    num_runs = 1
+    single_runs = TRUE
+  } else{
+    single_runs = F
+  }
+  for (run_i in 0:(num_runs-1)) {
     for (result_subdir in result_subdirs) {
-      filename = sprintf("%s%s/%s.csv", results_dir, result_subdir, file_type)
+      if (single_runs) {
+        filename = sprintf("%s%s/%s.csv", results_dir, result_subdir, file_type)
+      } else {
+        filename = sprintf("%s%s/run_%i_%s.csv", results_dir, result_subdir, run_i, file_type)
+      }
       print(filename)
       if (!file.exists(filename)) {
         print(paste("skipping ", filename, sep=""))
@@ -86,14 +100,14 @@ load_d = function(results_dir, result_subdirs, num_runs, file_type) {
         this_d = read.csv(filename, check.names=F, header=T) 
       }
       this_d = this_d %>%
-        mutate(run = 0,
-#        mutate(run = run_i,
+#        mutate(run = 0,
+        mutate(run = run_i,
                run_type = result_subdir)
       d = d %>%
         bind_rows(this_d)
     }
     
-#  }
+  }
   return(d)
 }
 ```
@@ -102,7 +116,9 @@ load_d = function(results_dir, result_subdirs, num_runs, file_type) {
 # config loading
 
 ```{r}
-config_d = load_d(results_dir, result_subdirs, num_runs, "config")
+config_d = load_d(results_dir, result_subdirs, F, "config")
+config_d = bind_rows(config_d,
+                     load_d(results_dir, newer_results_subdirs, num_runs, "config"))
 ```
 ```{r}
 config_d = config_d %>% 
@@ -114,7 +130,9 @@ config_d = config_d %>%
 # base data loading
 
 ```{r}
-base_d = load_d(results_dir, result_subdirs, num_runs, "base_losses")
+base_d = load_d(results_dir, result_subdirs, F, "base_losses")
+base_d = bind_rows(base_d,
+                   load_d(results_dir, newer_results_subdirs, num_runs, "base_losses"))
 ```
 
 ```{r}
@@ -177,12 +195,12 @@ ggplot(base_d %>%
 ```
 
 ```{r}
-ggplot(base_d %>% 
-         filter(game_type == "shooter"),
-       aes(x=epoch, y=returns_mean, linetype=eval)) +
-  geom_line(stat="summary",
-            fun.y="mean") +
-  facet_wrap(~ run_type, scales = "free")
+# ggplot(base_d %>% 
+#          filter(game_type == "shooter"),
+#        aes(x=epoch, y=returns_mean, linetype=eval)) +
+#   geom_line(stat="summary",
+#             fun.y="mean") +
+#   facet_wrap(~ run_type, scales = "free")
 ```
 
 ```{r}
@@ -196,7 +214,9 @@ ggplot(base_d,
 # meta data loading
 
 ```{r}
-meta_d = load_d(results_dir, result_subdirs, num_runs, "meta_true_losses")
+meta_d = load_d(results_dir, result_subdirs, F, "meta_true_losses")
+meta_d = bind_rows(meta_d,
+                   load_d(results_dir, newer_results_subdirs, num_runs, "meta_true_losses"))
 ```
 
 ```{r}
