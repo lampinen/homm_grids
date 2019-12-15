@@ -1,5 +1,5 @@
 ---
-title: "EML Ggrid-world analyses"
+title: "EML Grid-world analyses"
 author: "Andrew Lampinen"
 output: html_document
 ---
@@ -10,10 +10,54 @@ library(tidyverse)
 ```
 
 ```{r}
-results_dir = "../results/"
+#results_dir = "../results/persistent_rot/"
+#results_dir = "../results/persistent_static/"
+results_dir = "../results/persistent/"
 
-result_subdirs = c("results_0", "results_2", "results_3", "results_4", "results_5", "results_6", "results_7", "results_8", "results_9")
+result_subdirs = c(#"results_0", 
+                   #"results_1", "results_2", "results_3", "results_4", 
+                   #"results_5", "results_6", "results_7",
+                   #"results_8", "results_9", "results_10", "results_11", "results_12",
+                   #"results_13", "results_14", 
+                   #"results_15", "results_16",# "results_17",
+                   #"results_18",
+                   #"results_19", "results_20", "results_21",
+                   ## starting from here, neg_value = -1
+                   #"results_22", "results_23", "results_24", "results_25",
+                   #"results_26", "results_27", "results_28",
+                   #"results_29",# "results_30", "results_31", "results_32", "results_33", "results_34", "results_35", "results_36",
+                   #"results_37", "results_38", "results_39", "results_40", "results_41", "results_42",
+                   #"results_43", "results_44", "results_45",
+                   ## after here, eval bug fixed
+                   #"results_46", "results_47", "results_48", 
+                   #"results_49",# "results_50",
+                   #"results_51", "results_52", "results_53", "results_54", "results_55",
+                   #"results_56", "results_57", "results_58", 
+                   "results_59", 
+                   #"results_60", "results_61", "results_62", "results_63",
+                   ## additional color mappings
+                   #"results_65", "results_66", 
+                   #"results_67",
+                   ##
+                   #"results_68",
+                   #"results_69", "results_70",
+                   "results_71", #"results_72",
+                   #"results_73", #"results_74", "results_75",
+                   #"results_76", "results_77", "results_78",
+                   #"results_79", "results_80",
+                   #"results_81",
+                   #"results_82", "results_83",
+                   #"results_84", "results_85",
+                   #"results_86", #"results_87",
+                   #"results_88",
+                   "results_89", "results_90", "results_91", "results_92",
+                   "results_93", "results_94", "results_95", "results_96"
+                   
+                   )
 
+newer_results_subdirs = c("results_100", "results_101", "results_102", "results_103")
+
+num_runs = 1
 ```
 
 # utils and setup
@@ -32,9 +76,19 @@ read_config = function(config_file) {
 ```{r}
 load_d = function(results_dir, result_subdirs, num_runs, file_type) {
   d = data.frame()
-#  for (run_i in 0:(num_runs-1)) {
+  if (num_runs == F) {
+    num_runs = 1
+    single_runs = TRUE
+  } else{
+    single_runs = F
+  }
+  for (run_i in 0:(num_runs-1)) {
     for (result_subdir in result_subdirs) {
-      filename = sprintf("%s%s/%s.csv", results_dir, result_subdir, file_type)
+      if (single_runs) {
+        filename = sprintf("%s%s/%s.csv", results_dir, result_subdir, file_type)
+      } else {
+        filename = sprintf("%s%s/run_%i_%s.csv", results_dir, result_subdir, run_i, file_type)
+      }
       print(filename)
       if (!file.exists(filename)) {
         print(paste("skipping ", filename, sep=""))
@@ -46,14 +100,14 @@ load_d = function(results_dir, result_subdirs, num_runs, file_type) {
         this_d = read.csv(filename, check.names=F, header=T) 
       }
       this_d = this_d %>%
-        mutate(run = 0,
-#        mutate(run = run_i,
+#        mutate(run = 0,
+        mutate(run = run_i,
                run_type = result_subdir)
       d = d %>%
         bind_rows(this_d)
     }
     
-#  }
+  }
   return(d)
 }
 ```
@@ -62,41 +116,96 @@ load_d = function(results_dir, result_subdirs, num_runs, file_type) {
 # config loading
 
 ```{r}
-config_d = load_d(results_dir, result_subdirs, num_runs, "config")
+config_d = load_d(results_dir, result_subdirs, F, "config")
+config_d = bind_rows(config_d,
+                     load_d(results_dir, newer_results_subdirs, num_runs, "config"))
+```
+```{r}
+config_d = config_d %>% 
+  rowwise() %>% 
+  mutate(hold_outs = list(sub("sequence_imitation", "sequenceimitation", sub("pick_up", "pickup",hold_outs)))) %>%
+  ungroup() 
 ```
 
 # base data loading
 
 ```{r}
-base_d = load_d(results_dir, result_subdirs, num_runs, "base_losses")
+base_d = load_d(results_dir, result_subdirs, F, "base_losses")
+base_d = bind_rows(base_d,
+                   load_d(results_dir, newer_results_subdirs, num_runs, "base_losses"))
 ```
 
 ```{r}
 base_d = base_d %>%
   gather(environment_and_metric, value, -epoch, -run_type, -run) %>%
   mutate(environment_and_metric=sub("pick_up", "pickup", environment_and_metric),
-         environment_and_metric=sub("sequence_imitation", "sequenceimitation", environment_and_metric),
-         ) %>%
+         environment_and_metric=sub("sequence_imitation", "sequenceimitation", environment_and_metric)) %>%
   separate(environment_and_metric, 
            c("game_type", "good_color", "bad_color", "switch_colors", "switch_left_right", "metric"),
            sep="_",
            extra="merge") %>%
-  spread(metric, value)
+  spread(metric, value) %>%
+  mutate(environment_name = paste(game_type, good_color, bad_color, switch_colors, switch_left_right, sep="_"))
+```
+
+```{r}
+check_if_eval = function(environment_name, this_run_type) {
+  these_hold_outs = config_d %>% 
+    filter(run_type == this_run_type) %>% 
+    pull(hold_outs) %>%
+    unlist()
+  return(environment_name %in% these_hold_outs)
+}
+
+check_if_eval = Vectorize(check_if_eval)
+```
+
+```{r}
+base_d = base_d %>% 
+  mutate(eval = check_if_eval(environment_name, run_type))
 ```
 
 # basic plot
+```{r}
+theme_set(theme_bw())
+```
 
 ```{r}
 ggplot(base_d,
-       aes(x=epoch, y=returns_mean, color=game_type)) +
+       aes(x=epoch, y=returns_mean, color=game_type, linetype=eval)) +
   geom_line(stat="summary",
             fun.y="mean") +
+  geom_hline(yintercept=0,
+             linetype=2) +
   facet_wrap(~ run_type, scales = "free")
 ```
 
 ```{r}
+ggplot(base_d %>%
+         filter(run_type == "results_59"),
+       aes(x=epoch, y=returns_mean, color=game_type, linetype=eval)) +
+  geom_line(stat="summary",
+            fun.y="mean") +
+  geom_hline(yintercept=0,
+             linetype=2)+ 
+  geom_hline(yintercept=4,
+             linetype=3) +
+  labs(y="Meta-learning average return")
+#ggsave("plots/basic_meta_learning.png")
+```
+
+```{r}
+# ggplot(base_d %>% 
+#          filter(game_type == "shooter"),
+#        aes(x=epoch, y=returns_mean, linetype=eval)) +
+#   geom_line(stat="summary",
+#             fun.y="mean") +
+#   facet_wrap(~ run_type, scales = "free")
+```
+
+```{r}
 ggplot(base_d,
-       aes(x=epoch, y=steps_mean, color=game_type)) +
+       aes(x=epoch, y=steps_mean, color=game_type, linetype=eval)) +
   geom_line(stat="summary",
             fun.y="mean") +
   facet_wrap(~ run_type, scales = "free")
@@ -105,7 +214,9 @@ ggplot(base_d,
 # meta data loading
 
 ```{r}
-meta_d = load_d(results_dir, result_subdirs, num_runs, "meta_true_losses")
+meta_d = load_d(results_dir, result_subdirs, F, "meta_true_losses")
+meta_d = bind_rows(meta_d,
+                   load_d(results_dir, newer_results_subdirs, num_runs, "meta_true_losses"))
 ```
 
 ```{r}
@@ -115,17 +226,54 @@ meta_d = meta_d %>%
            c("meta_task", "source", "target_and_metric"),
            sep=":|->",
            extra="merge") %>%
+  mutate(metric = str_extract(target_and_metric, "(steps|returns)_(mean|se)$"),
+         target = sub("(steps|returns)_(mean|se)$", "", target_and_metric)) %>%
   spread(metric, value) %>%
-  mutate(eval = grepl("\\[eval\\]", meta_task)) %>%
-  mutate(meta_task = sub("\\[eval\\]", "", meta_task))
+  mutate(eval = grepl("\\[eval\\]", meta_task),
+         meta_task = sub("\\[eval\\]", "", meta_task),
+         source_is_eval = check_if_eval(source, run_type)) %>%
+  mutate(source=sub("pick_up", "pickup", source),
+         source=sub("sequence_imitation", "sequenceimitation", source)) %>%
+  separate(source, 
+           c("source_game_type", "source_good_color", "source_bad_color", "source_switch_colors", "source_switch_left_right"),
+           sep="_",
+           extra="merge")
 ```
 
 # basic plot
 
 ```{r}
-ggplot(meta_d,
-       aes(x=epoch, y=returns_mean, color=eval)) +
+ggplot(meta_d %>%
+         filter(meta_task == "switch_colors"),
+       aes(x=epoch, y=returns_mean, color=source_game_type, linetype=interaction(eval, source_is_eval))) +
   geom_line(stat="summary",
             fun.y="mean") +
+  geom_hline(yintercept=0,
+             linetype=2) +
   facet_wrap(~ run_type, scales="free")
+```
+
+
+```{r}
+ggplot(meta_d %>% 
+         filter(run_type %in% c("results_59")),
+       aes(x=epoch, y=returns_mean, color=source_game_type, linetype=eval)) +
+  geom_line(stat="summary",
+            fun.y="mean") +
+  geom_hline(yintercept=0,
+             linetype=2) +
+  geom_hline(yintercept=4,
+             linetype=3) +
+  labs(y="Meta-mapping average return")
+#ggsave("plots/meta_mapping_results.png")
+```
+
+```{r}
+ggplot(meta_d,
+       aes(x=epoch, y=returns_mean, color=source_game_type, linetype=interaction(eval, source_is_eval))) +
+  geom_line(stat="summary",
+            fun.y="mean") +
+  geom_hline(yintercept=0,
+             linetype=2) +
+  facet_grid(meta_task ~ run_type, scales="free")
 ```

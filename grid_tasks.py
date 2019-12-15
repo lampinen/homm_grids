@@ -22,28 +22,34 @@ SCROLL_SIZE = 2 * GRID_SIZE + 1
 UPSAMPLE_SIZE = 7
 
 PICK_UP_NUM_OBJECTS_PER = 4
+PUSHER_NUM_OBJECTS_PER = 4
 SHOOTER_NUM_OBJECTS_PER = 4
 
 SEQ_IMIT_MOVE_LIMIT = 8
 SEQ_IMIT_VALUE_PER = 0.5
 
-NEG_VALUE = -0.1
+NEG_VALUE = -1.
 
 BG_CHAR = ' '
 AGENT_CHAR = 'A'
 WALL_CHAR = '#'
 
-letters = [chr(i) for i in range(97, 97 + 26)]
+letters = [chr(i) for i in list(range(97, 97 + 26)) + list(range(66, 66 + 25))] # omit 'A', used for agent
+
 BASE_COLOURS = {
     "red": (1., 0., 0.),
     "green": (0., 1., 0.),
     "blue": (0., 0., 1.),
     "yellow": (1., 1, 0.),
-    "purple": (1., 0., 1.),
-    "teal": (0., 1., 1.),
+    "pink": (1., 0.3, 1.),
+    "cyan": (0., 1., 1.),
+    "purple": (0.5, 0., 0.6),
+    "ocean": (0.1, 0.4, 0.5),
+    "orange": (1., 0.6, 0.),
+    "forest": (0., 0.5, 0.),
 }
 
-BASE_SHAPES = ["square", "diamond", "triangle"]
+BASE_SHAPES = ["square", "diamond", "triangle", "tee"]
 
 AGENT_SHAPE = "triangle"
 
@@ -61,8 +67,6 @@ COLOURS.update({
     AGENT_CHAR: (1., 1., 1.),
     WALL_CHAR: (0.5, 0.5, 0.5),
     })
-
-META_MAPPINGS = ["switched_colors", "switched_left_right"]
 
 def make_game(game_type, good_color, bad_color, switched_colors=False):
     if switched_colors:
@@ -82,6 +86,20 @@ def make_game(game_type, good_color, bad_color, switched_colors=False):
         these_drapes.update(
             {good_char: ascii_art.Partial(ValueDrape, value=1.),
              bad_char: ascii_art.Partial(ValueDrape, value=NEG_VALUE)})
+    elif game_type == "pusher":
+        shape = "tee"
+        num_objects = PUSHER_NUM_OBJECTS_PER
+        good_obj = good_color + "_" + shape 
+        bad_obj = bad_color + "_" + shape 
+
+        good_char = OBJECTS[good_obj]["char"] 
+        bad_char = OBJECTS[bad_obj]["char"] 
+
+        these_drapes.update(
+            {good_char: ascii_art.Partial(PushableDrape, 
+                                          value=1.),
+             bad_char: ascii_art.Partial(PushableDrape,
+                                         value=NEG_VALUE)})
     elif game_type == "shooter":
         shape = "diamond"
         num_objects = SHOOTER_NUM_OBJECTS_PER
@@ -112,12 +130,15 @@ def make_game(game_type, good_color, bad_color, switched_colors=False):
         raise ValueError("Unknown game type: {}".format(game_type))
 
     update_schedule = [AGENT_CHAR, good_char, bad_char]
+    if game_type == "pusher":
+        update_schedule = [good_char, bad_char, AGENT_CHAR]
+
     grid = []
     grid.append(["#"] * (GRID_SIZE + 2))
     for _ in range(GRID_SIZE):
         grid.append(["#"]  + ([" "] * GRID_SIZE) + ["#"])
     grid.append(["#"] * (GRID_SIZE + 2))
-    if game_type in ["pick_up", "shooter"]:
+    if game_type in ["pick_up", "pusher", "shooter"]:
         locations = [(i, j) for i in range(1, GRID_SIZE + 1) for j in range(1, GRID_SIZE + 1)] 
     elif game_type == "sequence_imitation":
         quarts = [1 + GRID_SIZE // 4, GRID_SIZE - GRID_SIZE // 4]
@@ -144,6 +165,9 @@ def make_game(game_type, good_color, bad_color, switched_colors=False):
 
     if game_type == "pick_up":
         game.the_plot["num_picked_up"] = 0
+    elif game_type == "pusher":
+        game.the_plot["num_pushed_off"] = 0
+        game.the_plot["player_blocked"] = False
     elif game_type == "shooter":
         game.the_plot["num_shot"] = 0
         game.the_plot["heading"] = 0
@@ -160,35 +184,14 @@ class PlayerSprite(prefab_sprites.MazeWalker):
         self.game_type = game_type
 
     def update(self, actions, board, layers, backdrop, things, the_plot):
-        if actions == 5:
+        if actions is None:  # dummy step at start of game
+            return
+        elif actions == 8:
           the_plot.terminate_episode()
-        if self.game_type == "shooter":
-            heading = the_plot["heading"]
-            if actions == 0:
-                if heading == 0:
-                    self._north(board, the_plot)
-                elif heading == 1:
-                    self._east(board, the_plot)
-                elif heading == 2:
-                    self._south(board, the_plot)
-                elif heading == 3:
-                    self._west(board, the_plot)
-            elif actions == 1:
-                the_plot["heading"] = (heading + 1) % 4
-            elif actions == 2:
-                if heading == 0:
-                    self._south(board, the_plot)
-                elif heading == 1:
-                    self._west(board, the_plot)
-                elif heading == 2:
-                    self._north(board, the_plot)
-                elif heading == 3:
-                    self._east(board, the_plot)
-            elif actions == 3:
-                the_plot["heading"] = (heading - 1) % 4
-            elif actions == 4:
-                self._shoot(heading, things, the_plot)
-
+        elif self.game_type == "shooter" and actions >= 4:
+            self._shoot(actions - 4, things, the_plot)
+        elif self.game_type == "pusher" and the_plot["player_blocked"]:
+            self._stay(board, the_plot)
         else:
             if actions == 0:
                 self._north(board, the_plot)
@@ -198,7 +201,7 @@ class PlayerSprite(prefab_sprites.MazeWalker):
                 self._south(board, the_plot)
             elif actions == 3:
                 self._west(board, the_plot)
-            elif actions == 4:
+            elif actions >= 4:
                 self._stay(board, the_plot)
 
         if self.game_type == "sequence_imitation":
@@ -206,6 +209,8 @@ class PlayerSprite(prefab_sprites.MazeWalker):
                 the_plot.add_reward(the_plot["good_value"])
             elif actions == the_plot["bad_move"]:
                 the_plot.add_reward(the_plot["bad_value"])
+
+        the_plot["player_blocked"] = False  # reset for next turn
 
     def _shoot(self, heading, things, the_plot):
         assert(self.game_type == "shooter")  # TODO: remove when testing is done
@@ -303,6 +308,56 @@ class ValueDrape(plab_things.Drape):
                 the_plot.terminate_episode()
 
 
+class PushableDrape(plab_things.Drape):
+    def __init__(self, curtain, character, value):
+        super(PushableDrape, self).__init__(curtain, character)
+        self._value = value
+
+    def update(self, actions, board, layers, backdrop, things, the_plot):
+        player_position = things[AGENT_CHAR].position
+
+        rows, cols = player_position
+        proposed_position = None
+        if actions == 0:    # up 
+          if self.curtain[rows - 1, cols]: 
+              position = rows - 1, cols
+              proposed_position = rows - 2, cols
+        elif actions == 1:  # right 
+          if self.curtain[rows, cols + 1]: 
+              position = rows, cols + 1
+              proposed_position = rows, cols + 2
+        elif actions == 2:  # down 
+          if self.curtain[rows + 1, cols]:
+              position = rows + 1, cols
+              proposed_position = rows + 2, cols
+        elif actions == 3:  # left 
+          if self.curtain[rows, cols - 1]: 
+              position = rows, cols - 1
+              proposed_position = rows, cols - 2
+
+        if proposed_position is None:
+            return 
+
+        # check if reached edge
+        proposed_row, proposed_col = proposed_position
+        if proposed_row == 0 or proposed_row == GRID_SIZE + 1 or proposed_col == 0 or proposed_col == GRID_SIZE + 1:
+            the_plot.add_reward(self._value)
+            self.curtain[position] = False
+            the_plot["num_pushed_off"] += 1
+            if the_plot["num_pushed_off"] == PUSHER_NUM_OBJECTS_PER:
+                the_plot.terminate_episode()
+        else:
+            for thing_key, thing in things.items():
+                if thing_key == AGENT_CHAR:
+                    continue
+                if thing.curtain[proposed_position]:
+                    the_plot["player_blocked"] = True
+                    break
+            else:
+                self.curtain[position] = False
+                self.curtain[proposed_position] = True
+            
+
 class ShootableDrape(plab_things.Drape):
     def __init__(self, curtain, character, value):
         super(ShootableDrape, self).__init__(curtain, character)
@@ -312,6 +367,7 @@ class ShootableDrape(plab_things.Drape):
         player_position = things[AGENT_CHAR].position
 
         if self.curtain[player_position]:
+            the_plot.add_reward(NEG_VALUE)
             the_plot.terminate_episode()
 
 #        if the_plot["shooting"]:
@@ -435,7 +491,7 @@ class Environment(object):
     """A game wrapper that handles resetting, rendering, and input flips."""
     def __init__(self,
                  game_def, 
-                 num_actions=5,
+                 num_actions=8,
                  max_steps=40,
                  objects=OBJECTS):
         self.num_actions = num_actions
@@ -492,7 +548,7 @@ class Environment(object):
 
 def main(argv=()):
     np.random.seed(0)
-    env = Environment(GameDef("shooter", "red", "blue", False, False))
+    env = Environment(GameDef("pusher", "pink", "ocean", False, False))
     obs, r, done = env.reset()
     plot.imshow(obs)
     plot.savefig("first.png")
@@ -501,17 +557,16 @@ def main(argv=()):
         plot.imshow(obs)
         plot.savefig("%i.png" % i)
 
-    for game_type in ["shooter", "sequence_imitation", "pick_up"]:
+    for game_type in ["pusher", "shooter", "sequence_imitation", "pick_up"]:
         game = make_game(game_type, "red", "blue")
 
         ui = human_ui.CursesUi(
             keys_to_actions={curses.KEY_UP: 0, curses.KEY_RIGHT: 1,
                              curses.KEY_DOWN: 2, curses.KEY_LEFT: 3,
-                             ' ': 4,
-                             'q': 5, 'Q': 5},
+                             'w': 4, 'd': 5, 's': 6, 'a': 7,
+                             'q': 8, 'Q': 8},
             delay=None, colour_fg={k: curse_color(v) for k, v in COLOURS.items()},
-            colour_bg={AGENT_CHAR: (0, 0, 0)},
-            croppers=[cropper])
+            colour_bg={AGENT_CHAR: (0, 0, 0)})
 
         ui.play(game)
 
