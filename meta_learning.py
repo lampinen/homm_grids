@@ -156,7 +156,7 @@ for run_i in range(config['run_offset'],
                 ti = time.time()
                 steps = []
                 returns = []
-                for e in environments: 
+                for e in train_environments:  # keep experience random on held-out environments 
                     _, step, tot_return = my_agent.play(
                         e, cached=config["play_cached"])
                     steps.append(step)
