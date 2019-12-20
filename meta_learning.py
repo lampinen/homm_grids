@@ -20,7 +20,7 @@ config = {
     'num_actions': 4,
     'softmax_beta': 8.,
     'discount': 0.85,
-    'max_steps': 150,
+    'max_steps': 100,
     'meta_batch_size': 128, # how many examples the meta-net is conditioned on
                             # for base training.
     'game_types': ['pick_up', 'pusher'],#, 'shooter'], 
@@ -52,7 +52,7 @@ config = {
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 10000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_109/',
+    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_110/',
 
     'num_runs': 5,
     'run_offset': 0,
