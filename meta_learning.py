@@ -52,7 +52,7 @@ config = {
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 10000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/mnt/fs4/lampinen/grids_persistent/results_111/',
+    'results_dir': '/data3/lampinen/grids/results_112/',
 
     'num_runs': 5,
     'run_offset': 0,
@@ -184,7 +184,7 @@ for run_i in range(config['run_offset'],
                     meta_eval_mean = np.mean(np.array(m_returns_mean)[eval_indices])
                     if meta_eval_mean > best_eval_mean:
                         best_eval_mean = meta_eval_mean
-                        my_agent.save_parameters(config['results_dir'] + "best_checkpoint")
+                        my_agent.save_parameters(config['results_dir'] + filename_prefix + "best_checkpoint")
                 print("Eval took {} seconds".format(time.time() - ti)) 
                 fout.write(results_format % tuple(results))
                 print(results)
