@@ -443,6 +443,23 @@ class EML_DQN_agent(random_agent):
                 bfinal = tf.squeeze(bfinal, axis=0)
                 hidden_weights.append(Wfinal)
                 hidden_biases.append(bfinal)
+
+                if config["F_weight_normalization"]:
+                    def normalize_weights(x):
+                        return x / (tf.sqrt(tf.reduce_sum(
+                            tf.square(x), axis=0, keepdims=True)) + 1e-6)
+                    hidden_weights = [normalize_weights(x) for x in hidden_weights]
+
+                    # fit scalar magnitudes for each vector, as expressive
+                    # as standard, but may be easier to optimize. The
+                    # original weight normalization idea
+                    task_weight_norms = tf.nn.relu(1. + slim.fully_connected(
+                        hyper_hidden,
+                        num_task_hidden_layers*num_hidden_F + z_dim,
+                        activation_fn=None))
+                    endpoints = [i * num_hidden_F for i in range(len(hidden_weights))] + [len(hidden_weights) * num_hidden_F + z_dim]
+                    hidden_weights = [tf.multiply(x, task_weight_norms[0, tf.newaxis, endpoints[i]:endpoints[i + 1]]) for (i, x) in enumerate(hidden_weights)]
+
                 return hidden_weights, hidden_biases
 
         with tf.variable_scope("learner"):
