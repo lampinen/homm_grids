@@ -58,7 +58,7 @@ config = {
     'num_runs': 1,
     'run_offset': 0,
 
-    'num_games_to_record': 5,
+    'num_games_to_record': 10,
 }
 
 for run_i in range(config['run_offset'], 
@@ -99,7 +99,8 @@ for run_i in range(config['run_offset'],
 
     meta_tasks = config["meta_tasks"]
     (m_names, m_steps_mean, m_steps_se,
-     m_returns_mean, m_returns_se) = my_agent.do_meta_true_eval(meta_tasks, record_games=True)
+     m_returns_mean, m_returns_se) = my_agent.do_meta_true_eval(
+        meta_tasks, num_games=config['num_games_to_record'], record_games=True)
     print(m_returns_mean)
 
     my_agent.save_recordings(config['recordings_dir'], filename_prefix)
