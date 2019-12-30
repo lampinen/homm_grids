@@ -1,6 +1,10 @@
 import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.animation
 
 import grid_tasks 
 from meta_tasks import generate_meta_pairings
@@ -42,6 +46,7 @@ class random_agent(object):
         self.epsilon = 1.
         self.memory_buffers = {}
         self.environment_indices = {}
+        self.recordings = {}
         self.num_environments = 0
 
     def choose_action(self, environment, observation, cached=False,
@@ -65,7 +70,7 @@ class random_agent(object):
                 self.environment_indices[environment_name])
 
     def play(self, environment, max_steps=1e5, remember=True,
-             cached=False, from_embedding=None, print_Qs=False):
+             cached=False, from_embedding=None, print_Qs=False, record=False):
         (environment_name,
          memory_buffer,
          env_index) = self._environment_lookup(environment)
@@ -73,6 +78,9 @@ class random_agent(object):
         done = False
         total_return = 0.
         obs, _, _ = environment.reset()
+
+        if record:
+            this_recording = [obs] 
 
         while (not done and step < max_steps):
             step += 1
@@ -95,11 +103,43 @@ class random_agent(object):
                 memory_buffer.add((conditioning_obs, 
                                    action,
                                    this_reward)) 
+
+            if record:
+                this_recording.append(obs)
             
         if remember:
             memory_buffer.end_experience()
 
+        if record:
+            if environment_name not in self.recordings:
+                self.recordings[environment_name] = [this_recording]
+            else:
+                self.recordings[environment_name].append(this_recording) 
+
         return done, step, total_return
+
+    def _save_recording(self, recording, filename):
+        fig = plt.figure()
+        p = plt.imshow(recording[0])
+
+        def init():
+            p.set_array(recording[0])
+            return p,
+
+        def frame(i):
+            p.set_array(recording[i])
+            return p,
+
+        anim = matplotlib.animation.FuncAnimation(
+            fig, frame, init_func=init, frames=len(recording))
+        anim.save(filename, writer='imagemagick', fps=10)
+
+    def save_recordings(self, recording_path, filename_prefix):
+        for env_name, recordings in self.recordings.items():
+            for i, recording in enumerate(recordings):
+                self._save_recording(
+                    recording,
+                    recording_path + filename_prefix + "%s_recording_%i.gif" % (env_name, i))
 
     def train(self, environments_to_train):
         pass
@@ -763,7 +803,7 @@ class EML_DQN_agent(random_agent):
             })
 
 
-    def do_meta_true_eval(self, meta_tasks, cached=False, num_games=10, max_steps=1e5):
+    def do_meta_true_eval(self, meta_tasks, cached=False, num_games=10, max_steps=1e5, record_games=False):
         # TODO: Update this function (or the one called next line) to allow
         # held-out meta-tasks.
         self.update_eval_task_embeddings()
@@ -800,8 +840,10 @@ class EML_DQN_agent(random_agent):
             these_pairings = self.meta_pairings[mt]["train"] +  self.meta_pairings[mt]["eval"]  
             for i, (task, mapped) in enumerate(these_pairings):
                 if meta_dataset["gm"][i]: # trained
+                    pairing_is_eval = False
                     names.append("%s:%s->%s" % (mt, task, mapped))
                 else:
+                    pairing_is_eval = True
                     names.append("%s[eval]:%s->%s" % (mt, task, mapped))
                 mapped_env = self.name_to_environment[mapped]
                 this_steps = []
@@ -811,7 +853,8 @@ class EML_DQN_agent(random_agent):
                         mapped_env, max_steps=max_steps, 
                         remember=False,
                         cached=False,
-                        from_embedding=outputs[i, :])
+                        from_embedding=outputs[i, :],
+                        record=record_games and pairing_is_eval)
                     this_steps.append(step)
                     this_returns.append(total_return)
                 steps_mean.append(np.mean(this_steps))
