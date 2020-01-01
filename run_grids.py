@@ -78,6 +78,23 @@ architecture_config.update({
     "emb_match_loss_weight": 0.2,
 })
 
+if True:  # enable for language baseline
+    run_config.update({
+        "train_language_base": True,
+        "train_base": False,
+        "train_meta": False,
+
+        "vocab": ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
+
+        "output_dir": run_config["output_dir"] + "language/",  # subfolder
+    })
+
+    architecture_config.update({
+        "max_sentence_len": 5,
+    })
+
+
+
 # architecture 
 def vision(processed_input, z_dim, reuse=False):
     vh = processed_input
@@ -349,7 +366,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
                         fed_embedding = np.expand_dims(fed_embedding, axis=0)
                     feed_dict[self.feed_embedding_ph] = fed_embedding
                 elif call_type == "lang":
-                    feed_dict[self.language_input_ph] = self.intify_task(task_name)
+                    feed_dict[self.language_input_ph] = self.task_name_to_lang_input[task_name]
 
                 if call_type == "cached" or self.architecture_config["persistent_task_reps"]:
                     feed_dict[self.task_index_ph] = [task_index]
@@ -448,6 +465,14 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
             self.best_eval_val = meta_eval_mean
             self.save_parameters(self.run_config["output_dir"] + "best_eval_checkpoint")
         return names, losses
+
+    def intify_task(self, task_name):  # note: only base tasks implemented at present
+        words = task_name.split("_") 
+        if words[0] == "pick":
+            words = ["pickup"] + words[2:]
+
+        return [self.vocab_dict[x] for x in words]
+        
 
 ## stuff
 for run_i in range(run_config["num_runs"]):
