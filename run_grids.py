@@ -228,6 +228,10 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         self.base_cached_emb_output_softmax = tf.nn.softmax(
             self.run_config["softmax_beta"] * self.base_cached_emb_unmasked_output)
 
+        if self.run_config["train_language_base"]:
+            self.base_lang_output_softmax = tf.nn.softmax(
+                self.run_config["softmax_beta"] * self.base_lang_unmasked_output)
+
     def fill_buffers(self, num_data_points=1024, random=False):
         """Add new "experiences" to memory buffers."""
         if random:
@@ -252,7 +256,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
             self.sess.run(self.update_target_network_op)
 
     def play(self, environment, max_steps=1e4, remember=True,
-             cached=False, from_embedding=None, print_Qs=False):
+             cached=False, from_embedding=None, print_Qs=False, from_language=False):
         (environment_name,
          memory_buffer,
          env_index) = self.base_task_lookup(environment)
@@ -272,7 +276,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
                                             from_embedding=from_embedding)
             else:
                 action = self.choose_action(environment, conditioning_obs,
-                                            cached=cached)
+                                            cached=cached, from_language=from_language)
             this_reward = 0.
             obs, r, done = environment.step(action)
             this_reward += r
@@ -388,7 +392,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
 
         return feed_dict
 
-    def choose_action(self, task, observation, cached=False, from_embedding=None):
+    def choose_action(self, task, observation, cached=False, from_embedding=None, from_language=False):
         if np.random.random() < self.epsilon:
              return task.sample_action()
 
@@ -397,6 +401,8 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
             call_type = "cached"
         elif from_embedding is not None:
             call_type = "fed"
+        elif from_language:
+            call_type = "lang"
         else:
             call_type = "standard"
         call_str = call_str % call_type
@@ -411,6 +417,10 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         elif cached:
             action_probs = self.sess.run(
                 self.base_cached_emb_output_softmax,
+                feed_dict=feed_dict)
+        elif from_language:
+            action_probs = self.sess.run(
+                self.base_lang_output_softmax,
                 feed_dict=feed_dict)
         else: # will need to remember experiences
             action_probs = self.sess.run(
@@ -433,6 +443,18 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
             _, _, total_return = self.play(task,
                                            remember=False,
                                            cached=True)
+            returns[game_i] = total_return
+        task_name, _, _ = self.base_task_lookup(task)
+        return [task_name + "_mean_rewards"], [np.mean(returns)]
+
+    def base_language_eval(self, task, train_or_eval):
+        returns = np.zeros(self.num_games_per_eval)
+
+        for game_i in range(self.num_games_per_eval):
+            _, _, total_return = self.play(task,
+                                           remember=False,
+                                           cached=False,
+                                           from_language=True)
             returns[game_i] = total_return
         task_name, _, _ = self.base_task_lookup(task)
         return [task_name + "_mean_rewards"], [np.mean(returns)]
