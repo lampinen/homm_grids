@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/mnt/fs4/lampinen/grids_with_library/results_1/",
+    "output_dir": "/data3/lampinen/grids_presentable/language_weight_norm/",
 
     "game_types": ["pick_up", "pusher"],#, "shooter"], -- if reenabled, change num of actions
     "color_pairs": [("red", "blue"), ("green", "purple"), ("yellow", "cyan"), ("pink", "ocean"), ("forest", "orange")], # good, bad
@@ -71,7 +71,8 @@ architecture_config.update({
     "meta_batch_size": 128,
     "meta_holdout_size": 32,
 
-    "task_weight_weight_mult": 100.,  #???
+    "task_weight_weight_mult": 30.,  #???
+    "F_weight_normalization": True,
     
     "persistent_task_reps": True,
     "combined_emb_guess_weight": "varied",
@@ -86,7 +87,10 @@ if True:  # enable for language baseline
 
         "vocab": ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
 
-        "output_dir": run_config["output_dir"] + "language/",  # subfolder
+        "eval_every": 500,  # things change faster with language
+        "update_target_network_every": 5000,
+
+        #"output_dir": run_config["output_dir"] + "language/",  # subfolder
     })
 
     architecture_config.update({
