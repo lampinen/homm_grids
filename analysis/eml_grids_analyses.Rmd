@@ -12,7 +12,7 @@ library(tidyverse)
 ```{r}
 #results_dir = "../results/persistent_rot/"
 #results_dir = "../results/persistent_static/"
-results_dir = "../results/persistent/"
+results_dir = "../results/grids_presentable/"
 
 result_subdirs = c(#"results_0", 
                    #"results_1", "results_2", "results_3", "results_4", 
@@ -33,7 +33,7 @@ result_subdirs = c(#"results_0",
                    #"results_49",# "results_50",
                    #"results_51", "results_52", "results_53", "results_54", "results_55",
                    #"results_56", "results_57", "results_58", 
-                   "results_59", 
+                   #"results_59", 
                    #"results_60", "results_61", "results_62", "results_63",
                    ## additional color mappings
                    #"results_65", "results_66", 
@@ -41,7 +41,7 @@ result_subdirs = c(#"results_0",
                    ##
                    #"results_68",
                    #"results_69", "results_70",
-                   "results_71", #"results_72",
+                   #"results_71", #"results_72",
                    #"results_73", #"results_74", "results_75",
                    #"results_76", "results_77", "results_78",
                    #"results_79", "results_80",
@@ -50,14 +50,27 @@ result_subdirs = c(#"results_0",
                    #"results_84", "results_85",
                    #"results_86", #"results_87",
                    #"results_88",
-                   "results_89", "results_90", "results_91", "results_92",
-                   "results_93", "results_94", "results_95", "results_96"
+                   #"results_89", "results_90", "results_91", "results_92",
+                   #"results_93", "results_94" #"results_95", "results_96"
                    
                    )
 
-newer_results_subdirs = c("results_100", "results_101", "results_102", "results_103")
+newer_results_subdirs = c(#"results_100", 
+                          #"results_101", #"results_102", 
+                          #"results_103",
+                          #"results_104", "results_105",
+                          #"results_106",
+                          #"results_107", "results_108", "results_109",
+                          #"results_110", "results_111",
+                          #"results_112", "results_113", "results_114",
+                          #"results_115", "results_116",
+                          # weight norm
+                          #"results_117"
+  )
 
-num_runs = 1
+
+
+num_runs = 3
 ```
 
 # utils and setup
@@ -253,10 +266,20 @@ ggplot(meta_d %>%
   facet_wrap(~ run_type, scales="free")
 ```
 
+```{r}
+ggplot(meta_d %>%
+         filter(meta_task == "switch_colors",
+                run_type %in% c("results_113", "results_115", "results_116")),
+       aes(x=epoch, y=returns_mean, color=source_game_type, linetype=interaction(eval, source_is_eval))) +
+  geom_line(stat="summary",
+            fun.y="mean") +
+  geom_hline(yintercept=0,
+             linetype=2) +
+  facet_grid(run ~ run_type, scales="free")
+```
 
 ```{r}
 ggplot(meta_d %>% 
-         filter(run_type %in% c("results_59")),
        aes(x=epoch, y=returns_mean, color=source_game_type, linetype=eval)) +
   geom_line(stat="summary",
             fun.y="mean") +
