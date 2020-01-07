@@ -14,7 +14,7 @@ config = {
     'F_num_hidden': 128, # " " " task network that H parameterizes
     'task_weight_weight_mult': 1.,
     'F_num_hidden_layers': 3,
-    'F_weight_normalization': True,
+    'F_weight_normalization': False,
 
     'H_num_hidden_layers': 3,
     'internal_nonlinearity': tf.nn.leaky_relu,
@@ -41,8 +41,8 @@ config = {
     'print_eval_Qs': False, # for debugging
     'softmax_policy': True, # if true, sample actions from probs, else greedy
     'optimizer': 'RMSProp',
-    'init_lr': 6e-5,
-    'init_meta_lr': 6e-5,
+    'init_lr': 1e-4,
+    'init_meta_lr': 1e-4,
     'lr_decay': 0.9,
     'meta_lr_decay': 0.95,
     'epsilon_decrease': 0.03,
@@ -54,7 +54,7 @@ config = {
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 10000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/data3/lampinen/grids_presentable/weight_norm_faster_matched_meta/',
+    'results_dir': '/data3/lampinen/grids_presentable/basiceven_faster_matched_meta/',
 
     'num_runs': 5,
     'run_offset': 0,
