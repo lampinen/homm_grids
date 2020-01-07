@@ -71,8 +71,8 @@ architecture_config.update({
     "meta_batch_size": 128,
     "meta_holdout_size": 32,
 
-    "task_weight_weight_mult": 30.,  #???
-    "F_weight_normalization": True,
+    "task_weight_weight_mult": 20.,  #???
+    "F_weight_normalization": False,
     
     "persistent_task_reps": True,
     "combined_emb_guess_weight": "varied",
@@ -81,7 +81,7 @@ architecture_config.update({
 
 if True:  # enable for language baseline
     run_config.update({
-        "output_dir": "/data3/lampinen/grids_presentable/language_wn_slower/",
+        "output_dir": "/data3/lampinen/grids_presentable/language_better_init/",
 
         "train_language_base": True,
         "train_base": False,
