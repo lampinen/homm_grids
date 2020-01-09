@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    #"output_dir": "/data3/lampinen/grids_presentable/language_slower/",
+    "output_dir": "/data3/lampinen/grids_presentable/basic_with_library/",
 
     "game_types": ["pick_up", "pusher"],#, "shooter"], -- if reenabled, change num of actions
     "color_pairs": [("red", "blue"), ("green", "purple"), ("yellow", "cyan"), ("pink", "ocean"), ("forest", "orange")], # good, bad
@@ -27,8 +27,8 @@ run_config.update({
     "softmax_beta": 8,
     "softmax_policy": True,
 
-    "init_learning_rate": 2e-5,
-    "init_meta_learning_rate": 2e-6,
+    "init_learning_rate": 3e-5,
+    "init_meta_learning_rate": 3e-5,
 
     "lr_decay": 0.9,
     "meta_lr_decay": 0.95,
@@ -37,7 +37,7 @@ run_config.update({
     "min_learning_rate": 1e-8,
     "min_meta_learning_rate": 1e-8,
 
-    "num_epochs": 1000000,
+    "num_epochs": 400000,
     "eval_every": 4000,
     "num_games_per_eval": 10,
     "refresh_mem_buffs_every": 1500,
@@ -71,7 +71,7 @@ architecture_config.update({
     "meta_batch_size": 128,
     "meta_holdout_size": 32,
 
-    "task_weight_weight_mult": 20.,  #???
+    "task_weight_weight_mult": 30.,  #???
     "F_weight_normalization": False,
     
     "persistent_task_reps": True,
@@ -81,7 +81,7 @@ architecture_config.update({
 
 if True:  # enable for language baseline
     run_config.update({
-        "output_dir": "/data3/lampinen/grids_presentable/language_better_init/",
+        "output_dir": "/data3/lampinen/grids_presentable/language/",
 
         "train_language_base": True,
         "train_base": False,
