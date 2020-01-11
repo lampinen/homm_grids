@@ -27,11 +27,10 @@ config = {
                             # for base training.
     'game_types': ['pick_up', 'pusher'],#, 'shooter'], 
     'color_pairs': [('red', 'blue'), ('green', 'purple'), ('yellow', 'cyan'), ('pink', 'ocean'), ('forest', 'orange')], # good, bad
-    'hold_outs': ['shooter_red_blue_True_False', 'shooter_red_blue_True_True',
-                  'pusher_red_blue_True_False', 'pusher_red_blue_True_True',
-                  'pick_up_red_blue_True_False', 'pick_up_red_blue_True_True'],#, 'shooter_green_purple_True_False', 'shooter_green_purple_True_True', 'shooter_yellow_teal_True_False', 'shooter_yellow_teal_True_True'], 
+    'hold_outs': ['pusher_red_blue_True_False', 'pusher_red_blue_True_True',
+                  'pick_up_red_blue_True_False', 'pick_up_red_blue_True_True'],
     'meta_tasks': ["switch_colors"],#, "switch_left_right"],
-    'num_epochs': 1000000,
+    'num_epochs': 400000,
     'combined_emb_guess_weight': "varied", 
     'emb_match_loss_weight': 0.2,  # weight on the loss that tries to match the
                                    # embedding guess and cache
@@ -42,7 +41,7 @@ config = {
     'softmax_policy': True, # if true, sample actions from probs, else greedy
     'optimizer': 'RMSProp',
     'init_lr': 3e-5,
-    'init_meta_lr': 7e-6,
+    'init_meta_lr': 3e-5,
     'lr_decay': 0.9,
     'meta_lr_decay': 0.95,
     'epsilon_decrease': 0.03,
