@@ -13,14 +13,15 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/data3/lampinen/grids_presentable/basic_with_library/",
+    "output_dir": "/data3/lampinen/grids_presentable/fewer_with_library/",
 
     "game_types": ["pick_up", "pusher"],#, "shooter"], -- if reenabled, change num of actions
     "color_pairs": [("red", "blue"), ("green", "purple"), ("yellow", "cyan"), ("pink", "ocean"), ("forest", "orange")], # good, bad
 
-    "hold_outs": [#"shooter_red_blue_True_False", "shooter_red_blue_True_True",
-                  "pusher_red_blue_True_False", "pusher_red_blue_True_True",
-                  "pick_up_red_blue_True_False", "pick_up_red_blue_True_True"], 
+    "hold_outs": ["pusher_forest_orange_True_False",
+                  "pick_up_forest_orange_True_False",
+                  "pusher_red_blue_True_False",
+                  "pick_up_red_blue_True_False"], 
 
     "max_steps": 150,
 
@@ -81,9 +82,9 @@ architecture_config.update({
 #    "emb_match_loss_weight": 0.2,
 })
 
-if False:  # enable for language baseline
+if True:  # enable for language baseline
     run_config.update({
-        "output_dir": "/data3/lampinen/grids_presentable/language/",
+        "output_dir": run_config["output_dir"] + "language/",
 
         "train_language_base": True,
         "train_base": False,
@@ -100,9 +101,9 @@ if False:  # enable for language baseline
         "max_sentence_len": 5,
     })
 
-if True:  # enable for language base + meta 
+if False:  # enable for language base + meta 
     run_config.update({
-        "output_dir": "/data3/lampinen/grids_presentable/language_HoMM/",
+        "output_dir": run_config["output_dir"] + "language_HoMM/",
 
         "train_language_base": True,
         "train_language_meta": True,
