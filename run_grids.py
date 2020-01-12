@@ -22,6 +22,8 @@ run_config.update({
                   "pusher_red_blue_True_False", "pusher_red_blue_True_True",
                   "pick_up_red_blue_True_False", "pick_up_red_blue_True_True"], 
 
+    "max_steps": 150,
+
     "meta_mappings": ["switch_colors"],
 
     "softmax_beta": 8,
@@ -74,12 +76,12 @@ architecture_config.update({
     "task_weight_weight_mult": 30.,  #???
     "F_weight_normalization": False,
     
-    "persistent_task_reps": True,
-    "combined_emb_guess_weight": "varied",
-    "emb_match_loss_weight": 0.2,
+#    "persistent_task_reps": True,
+#    "combined_emb_guess_weight": "varied",
+#    "emb_match_loss_weight": 0.2,
 })
 
-if True:  # enable for language baseline
+if False:  # enable for language baseline
     run_config.update({
         "output_dir": "/data3/lampinen/grids_presentable/language/",
 
@@ -90,6 +92,27 @@ if True:  # enable for language baseline
         "vocab": ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
 
         "init_language_learning_rate": 3e-6,
+        "eval_every": 500,  # things change faster with language
+        "update_target_network_every": 5000,
+    })
+
+    architecture_config.update({
+        "max_sentence_len": 5,
+    })
+
+if True:  # enable for language base + meta 
+    run_config.update({
+        "output_dir": "/data3/lampinen/grids_presentable/language_HoMM/",
+
+        "train_language_base": True,
+        "train_language_meta": True,
+        "train_base": False,
+        "train_meta": False,
+
+        "vocab": ["PAD"] + ["switch", "colors"] + ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
+
+        "init_language_learning_rate": 3e-6,
+        "init_language_meta_learning_rate": 3e-6,
         "eval_every": 500,  # things change faster with language
         "update_target_network_every": 5000,
     })
@@ -167,6 +190,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         self.num_games_per_eval = run_config["num_games_per_eval"]
         self.lr_decays_every = run_config["lr_decays_every"]
         self.update_target_network_every = run_config["update_target_network_every"]
+        self.max_sentence_len =  architecture_config["max_sentence_len"]
 
         self.best_eval_indices = None
         self.best_eval_val = -np.inf 
@@ -193,7 +217,9 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
                             switched_colors=switched_colors,
                             switched_left_right=switched_left_right))
 
-        environments = [grid_tasks.Environment(e, num_actions=4) for e in environment_defs]
+        environments = [grid_tasks.Environment(e, 
+                                               num_actions=4,
+                                               max_steps=run_config["max_steps"]) for e in environment_defs]
 
         train_environments = [e for e in environments if str(e) not in run_config["hold_outs"]]
         eval_environments = [e for e in environments if str(e) in run_config["hold_outs"]]
@@ -497,6 +523,9 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         words = task_name.split("_") 
         if words[0] == "pick":
             words = ["pickup"] + words[2:]
+
+        if len(words) < self.max_sentence_len:
+            words = ["PAD"] * (self.max_sentence_len - len(words)) + words
 
         return [self.vocab_dict[x] for x in words]
         
