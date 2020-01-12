@@ -27,8 +27,10 @@ config = {
                             # for base training.
     'game_types': ['pick_up', 'pusher'],#, 'shooter'], 
     'color_pairs': [('red', 'blue'), ('green', 'purple'), ('yellow', 'cyan'), ('pink', 'ocean'), ('forest', 'orange')], # good, bad
-    'hold_outs': ['pusher_red_blue_True_False', 'pusher_red_blue_True_True',
-                  'pick_up_red_blue_True_False', 'pick_up_red_blue_True_True'],
+    'hold_outs': ['pusher_forest_orange_True_False', 
+                  'pick_up_forest_orange_True_False',
+                  'pusher_red_blue_True_False', 
+                  'pick_up_red_blue_True_False'],
     'meta_tasks': ["switch_colors"],#, "switch_left_right"],
     'num_epochs': 400000,
     'combined_emb_guess_weight': "varied", 
@@ -53,7 +55,7 @@ config = {
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 10000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/data3/lampinen/grids_presentable/basic/',
+    'results_dir': '/data3/lampinen/grids_presentable/fewer/',
 
     'num_runs': 5,
     'run_offset': 0,
