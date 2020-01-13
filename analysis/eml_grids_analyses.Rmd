@@ -17,11 +17,13 @@ results_dir = "../results/grids_presentable/"
 result_subdirs = c(
                    )
 
-newer_results_subdirs = c("basic", "slower")
+newer_results_subdirs = c("basic", "slower", "fewer")
 
-language_results_subdirs = c("language")
-library_results_subdirs = c("basic_with_library")
+language_results_subdirs = c("language", "fewer_with_library/language")
+language_homm_results_subdirs = c("language_HoMM", "fewer_with_library/language_HoMM")
+library_results_subdirs = c("basic_with_library", "fewer_with_library_non_persistent")
 
+hold_out_regex = "red_blue_True|forest_orange_True"
 
 num_runs = 5
 ```
@@ -153,30 +155,32 @@ library_base_d = library_base_d %>%
 ```
 
 ```{r}
-check_if_eval = function(environment_name, this_run_type) {
-  these_hold_outs = config_d %>% 
-    filter(run_type == this_run_type) %>% 
-    pull(hold_outs) %>%
-    unlist()
-  return(environment_name %in% these_hold_outs)
-}
+# check_if_eval = function(environment_name, this_run_type) {
+#   these_hold_outs = config_d %>% 
+#     filter(run_type == this_run_type) %>% 
+#     pull(hold_outs) %>%
+#     unlist()
+#   return(environment_name %in% these_hold_outs)
+# }
 
-check_if_eval = Vectorize(check_if_eval)
+check_if_eval = function(environment_name){
+  grepl(hold_out_regex, environment_name) 
+}
 ```
 
 ```{r}
 base_d = base_d %>% 
-  mutate(eval = check_if_eval(environment_name, run_type))
+  mutate(eval = grepl(hold_out_regex, environment_name))
 ```
 
 ```{r}
 lang_d = lang_d %>% 
-  mutate(eval = grepl("red_blue_True", environment_name))
+  mutate(eval = grepl(hold_out_regex, environment_name))
 ```
 
 ```{r}
 library_base_d = library_base_d %>% 
-  mutate(eval = grepl("red_blue_True", environment_name))
+  mutate(eval = grepl(hold_out_regex, environment_name))
 ```
 
 # basic plot
@@ -219,7 +223,7 @@ ggplot(library_base_d,
   geom_hline(yintercept=4,
              linetype=3) +
   labs(y="Meta-learning average return") +
-  facet_wrap(~run)
+  facet_grid(run~run_type)
 #ggsave("plots/basic_meta_learning.png")
 ```
 
@@ -250,6 +254,11 @@ meta_d = bind_rows(meta_d,
 ```{r}
 library_meta_d = load_d(results_dir, library_results_subdirs, num_runs, T, "meta_true_losses")
 ```
+
+```{r}
+lang_meta_d = load_d(results_dir, language_homm_results_subdirs, num_runs, T, "language_meta_true_losses")
+```
+
 ```{r}
 meta_d = meta_d %>%
   gather(meta_data_point, value, -epoch, -run_type, -run) %>%
@@ -262,7 +271,7 @@ meta_d = meta_d %>%
   spread(metric, value) %>%
   mutate(eval = grepl("\\[eval\\]", meta_task),
          meta_task = sub("\\[eval\\]", "", meta_task),
-         source_is_eval = check_if_eval(source, run_type)) %>%
+         source_is_eval = check_if_eval(source)) %>%
   mutate(source=sub("pick_up", "pickup", source),
          source=sub("sequence_imitation", "sequenceimitation", source)) %>%
   separate(source, 
@@ -280,7 +289,25 @@ library_meta_d = library_meta_d %>%
            extra="merge") %>%
   mutate(eval = grepl("\\[eval\\]", meta_task),
          meta_task = sub("\\[eval\\]", "", meta_task),
-         source_is_eval = check_if_eval(source, run_type)) %>%
+         source_is_eval = check_if_eval(source)) %>%
+  mutate(source=sub("pick_up", "pickup", source),
+         source=sub("sequence_imitation", "sequenceimitation", source)) %>%
+  separate(source, 
+           c("source_game_type", "source_good_color", "source_bad_color", "source_switch_colors", "source_switch_left_right"),
+           sep="_",
+           extra="merge")
+```
+
+```{r}
+lang_meta_d = lang_meta_d %>%
+  gather(meta_data_point, value, -epoch, -run_type, -run) %>%
+  separate(meta_data_point, 
+           c("meta_task", "meta_mapping_toe", "base_task_toe", "source", "target"),
+           sep=":|->",
+           extra="merge") %>%
+  mutate(eval = grepl("\\[eval\\]", meta_task),
+         meta_task = sub("\\[eval\\]", "", meta_task),
+         source_is_eval = check_if_eval(source)) %>%
   mutate(source=sub("pick_up", "pickup", source),
          source=sub("sequence_imitation", "sequenceimitation", source)) %>%
   separate(source, 
@@ -318,6 +345,18 @@ ggplot(meta_d,
 
 ```{r}
 ggplot(library_meta_d %>%
+         filter(meta_task == "switch_colors"),
+       aes(x=epoch, y=value, color=source_game_type, linetype=base_task_toe)) +
+  geom_line(stat="summary",
+            fun.y="mean") +
+  geom_hline(yintercept=0,
+             linetype=2) +
+  facet_wrap(~ run_type, scales="free")
+```
+
+## language homm
+```{r}
+ggplot(lang_meta_d %>%
          filter(meta_task == "switch_colors"),
        aes(x=epoch, y=value, color=source_game_type, linetype=base_task_toe)) +
   geom_line(stat="summary",
