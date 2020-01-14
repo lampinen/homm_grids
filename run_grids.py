@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/data3/lampinen/grids_presentable/fewer_with_library/",
+    "output_dir": "/data3/lampinen/grids_presentable/fewer_with_library_smaller_init/",
 
     "game_types": ["pick_up", "pusher"],#, "shooter"], -- if reenabled, change num of actions
     "color_pairs": [("red", "blue"), ("green", "purple"), ("yellow", "cyan"), ("pink", "ocean"), ("forest", "orange")], # good, bad
@@ -37,8 +37,8 @@ run_config.update({
     "meta_lr_decay": 0.95,
 
     "lr_decays_every": 30000,
-    "min_learning_rate": 1e-8,
-    "min_meta_learning_rate": 1e-8,
+    "min_learning_rate": 3e-8,
+    "min_meta_learning_rate": 3e-7,
 
     "num_epochs": 400000,
     "eval_every": 4000,
@@ -50,7 +50,7 @@ run_config.update({
     "discount": 0.85,
     
     "init_epsilon": 1.,  # exploration probability
-    "epsilon_decay": 0.05,  # additive decay
+    "epsilon_decay": 0.03,  # additive decay
     "min_epsilon": 0.15,
 })
 
@@ -71,18 +71,18 @@ architecture_config.update({
     "F_num_hidden": 128,
     "optimizer": "RMSProp",
 
-    "meta_batch_size": 128,
+    "meta_batch_size": 64,
     "meta_holdout_size": 32,
 
-    "task_weight_weight_mult": 30.,  #???
+    "task_weight_weight_mult": 1.,  #???
     "F_weight_normalization": False,
     
-#    "persistent_task_reps": True,
-#    "combined_emb_guess_weight": "varied",
-#    "emb_match_loss_weight": 0.2,
+    "persistent_task_reps": True,
+    "combined_emb_guess_weight": "varied",
+    "emb_match_loss_weight": 0.2,
 })
 
-if True:  # enable for language baseline
+if False:  # enable for language baseline
     run_config.update({
         "output_dir": run_config["output_dir"] + "language/",
 
