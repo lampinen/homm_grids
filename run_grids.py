@@ -13,7 +13,10 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/data3/lampinen/grids_presentable/fewer_with_library_smaller_init/",
+    "output_dir": "/data3/lampinen/grids_presentable/basic/",
+
+    "run_offset": 0,
+    "num_runs": 1,
 
     "game_types": ["pick_up", "pusher"],#, "shooter"], -- if reenabled, change num of actions
     "color_pairs": [("red", "blue"), ("green", "purple"), ("yellow", "cyan"), ("pink", "ocean"), ("forest", "orange")], # good, bad
@@ -41,11 +44,11 @@ run_config.update({
     "min_meta_learning_rate": 3e-7,
 
     "num_epochs": 400000,
-    "eval_every": 4000,
+    "eval_every": 10,
     "num_games_per_eval": 10,
     "refresh_mem_buffs_every": 1500,
 
-    "update_target_network_every": 10000, # how many epochs between updates to the target network
+    "update_target_network_every": 5000, # how many epochs between updates to the target network
 
     "discount": 0.85,
     
@@ -74,7 +77,7 @@ architecture_config.update({
     "meta_batch_size": 64,
     "meta_holdout_size": 32,
 
-    "task_weight_weight_mult": 1.,  #???
+    "task_weight_weight_mult": 100.,
     "F_weight_normalization": False,
     
     "persistent_task_reps": True,
@@ -91,6 +94,7 @@ if False:  # enable for language baseline
         "train_meta": False,
 
         "vocab": ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
+        "persistent_task_reps": False,
 
         "init_language_learning_rate": 3e-6,
         "eval_every": 500,  # things change faster with language
@@ -111,6 +115,7 @@ if False:  # enable for language base + meta
         "train_meta": False,
 
         "vocab": ["PAD"] + ["switch", "colors"] + ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
+        "persistent_task_reps": False,
 
         "init_language_learning_rate": 3e-6,
         "init_language_meta_learning_rate": 3e-6,
@@ -148,6 +153,14 @@ def vision(processed_input, z_dim, reuse=False):
         print(vision_out)
     return vision_out
 
+def outcome_processor(outcomes, IO_num_hidden, z_dim,
+                      internal_nonlinearity, reuse=False):
+    with tf.variable_scope('outcome_processor', reuse=reuse):
+        outcome_processing_1 = slim.fully_connected(
+            outcomes, IO_num_hidden, activation_fn=internal_nonlinearity)
+        res = slim.fully_connected(outcome_processing_1, z_dim,
+                                    activation_fn=internal_nonlinearity)
+    return res
 
 # memory buffer
 class memory_buffer(object):
@@ -198,8 +211,11 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         super(grids_HoMM_agent, self).__init__(
             architecture_config=architecture_config, run_config=run_config,
             input_processor=lambda processed_input: vision(
-                processed_input, self.architecture_config["z_dim"]))
-
+                processed_input, self.architecture_config["z_dim"]),
+            outcome_processor=lambda x: outcome_processor(
+                x, self.architecture_config["IO_num_hidden"],
+                self.architecture_config["z_dim"],
+                self.architecture_config["internal_nonlinearity"]))
 
     def _pre_build_calls(self):
         run_config = self.run_config
@@ -454,7 +470,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
             action_probs = self.sess.run(
                 self.base_lang_output_softmax,
                 feed_dict=feed_dict)
-        else: # will need to remember experiences
+        else:
             action_probs = self.sess.run(
                 self.base_output_softmax,
                 feed_dict=feed_dict)
@@ -517,7 +533,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         meta_eval_mean = np.mean(np.array(losses)[self.best_eval_indices])
         if self.best_eval_val < meta_eval_mean:
             self.best_eval_val = meta_eval_mean
-            self.save_parameters(self.run_config["output_dir"] + "best_eval_checkpoint")
+            self.save_parameters(self.run_config["output_dir"] + "run%i_best_eval_checkpoint" % self.run_config["this_run"])
         return names, losses
 
     def intify_task(self, task_name):  # note: only base tasks implemented at present
@@ -532,7 +548,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         
 
 ## stuff
-for run_i in range(run_config["num_runs"]):
+for run_i in range(run_config["run_offset"], run_config["run_offset"] + run_config["num_runs"]):
     np.random.seed(run_i)
     tf.set_random_seed(run_i)
     run_config["this_run"] = run_i
