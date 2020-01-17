@@ -44,7 +44,7 @@ run_config.update({
     "min_meta_learning_rate": 3e-7,
 
     "num_epochs": 400000,
-    "eval_every": 10,
+    "eval_every": 4000,
     "num_games_per_eval": 10,
     "refresh_mem_buffs_every": 1500,
 
