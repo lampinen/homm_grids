@@ -48,7 +48,7 @@ run_config.update({
     "num_games_per_eval": 10,
     "refresh_mem_buffs_every": 1500,
 
-    "update_target_network_every": 5000, # how many epochs between updates to the target network
+    "update_target_network_every": 10000, # how many epochs between updates to the target network
 
     "discount": 0.85,
     
@@ -85,7 +85,7 @@ architecture_config.update({
     "emb_match_loss_weight": 0.2,
 })
 
-if False:  # enable for language baseline
+if True:  # enable for language baseline
     run_config.update({
         "output_dir": run_config["output_dir"] + "language/",
 
@@ -159,7 +159,7 @@ def outcome_processor(outcomes, IO_num_hidden, z_dim,
         outcome_processing_1 = slim.fully_connected(
             outcomes, IO_num_hidden, activation_fn=internal_nonlinearity)
         res = slim.fully_connected(outcome_processing_1, z_dim,
-                                    activation_fn=internal_nonlinearity)
+                                    activation_fn=None)
     return res
 
 # memory buffer
@@ -527,6 +527,8 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         self.epsilon = current_epsilon
 
     def run_meta_true_eval(self):
+        current_epsilon = self.epsilon
+        self.epsilon = 0.
         names, losses = super(grids_HoMM_agent, self).run_meta_true_eval()
         if self.best_eval_indices is None: 
             self.best_eval_indices = np.core.defchararray.find(names, "eval") != -1
@@ -534,6 +536,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         if self.best_eval_val < meta_eval_mean:
             self.best_eval_val = meta_eval_mean
             self.save_parameters(self.run_config["output_dir"] + "run%i_best_eval_checkpoint" % self.run_config["this_run"])
+        self.epsilon = current_epsilon
         return names, losses
 
     def intify_task(self, task_name):  # note: only base tasks implemented at present
