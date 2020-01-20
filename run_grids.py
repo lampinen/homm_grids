@@ -374,8 +374,9 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
                     target_feed_dict[self.base_outcome_ph] = self.outcome_creator(target_memories) 
                     target_feed_dict[self.base_input_ph] = np.array([x[0] for x in target_memories]) 
                     target_feed_dict[self.guess_input_mask_ph] = np.ones([len(target_memories)], np.bool) 
-
-                    next_Qs =  self.sess.run(self.base_output_tn,
+                    
+                    fetch = self.base_lang_output_tn if call_type == "lang" else self.base_cached_emb_output_tn
+                    next_Qs =  self.sess.run(fetch,
                                              feed_dict=target_feed_dict)
 
                     # now build actual feed dict
