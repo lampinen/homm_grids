@@ -374,8 +374,13 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
                     target_feed_dict[self.base_outcome_ph] = self.outcome_creator(target_memories) 
                     target_feed_dict[self.base_input_ph] = np.array([x[0] for x in target_memories]) 
                     target_feed_dict[self.guess_input_mask_ph] = np.ones([len(target_memories)], np.bool) 
-                    
-                    fetch = self.base_lang_output_tn if call_type == "lang" else self.base_cached_emb_output_tn
+                    target_feed_dict[self.keep_prob_ph] = 1.
+                    if call_type == "lang":
+                        target_feed_dict[self.lang_keep_prob_ph] = 1.
+                        target_feed_dict[self.language_input_ph] = self.task_name_to_lang_input[task_name]
+                        fetch = self.base_lang_output_tn
+                    else:
+                        fetch = self.base_cached_emb_output_tn
                     next_Qs =  self.sess.run(fetch,
                                              feed_dict=target_feed_dict)
 
