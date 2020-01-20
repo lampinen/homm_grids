@@ -55,7 +55,7 @@ config = {
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 10000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'results_dir': '/data3/lampinen/grids_presentable/fewer/',
+    'results_dir': '/data3/lampinen/grids_presentable/basic_without_library/',
 
     'num_runs': 5,
     'run_offset': 0,
