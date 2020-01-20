@@ -85,7 +85,7 @@ architecture_config.update({
     "emb_match_loss_weight": 0.2,
 })
 
-if True:  # enable for language baseline
+if False:  # enable for language baseline
     run_config.update({
         "output_dir": run_config["output_dir"] + "language/",
 
