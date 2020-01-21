@@ -17,13 +17,14 @@ results_dir = "../results/grids_presentable/"
 result_subdirs = c(
                    )
 
-newer_results_subdirs = c("basic", "slower", "fewer")
+newer_results_subdirs = c("basic_without_library")
 
-language_results_subdirs = c("language", "fewer_with_library/language")
-language_homm_results_subdirs = c("language_HoMM", "fewer_with_library/language_HoMM")
-library_results_subdirs = c("basic_with_library", "fewer_with_library_non_persistent")
+language_results_subdirs = c("basic/language", "faster/language")
+language_homm_results_subdirs = c("basic/language_HoMM")
 
-hold_out_regex = "red_blue_True|forest_orange_True"
+library_results_subdirs = c("basic", "smallweight", "faster", "faster2", "faster3")
+
+hold_out_regex = "red_blue_True|forest_orange_True"  # NOTE: we assume hold outs are the same across runs
 
 num_runs = 5
 ```
@@ -88,16 +89,16 @@ load_d = function(results_dir, result_subdirs, num_runs, with_library, file_type
 # config loading
 
 ```{r}
-config_d = load_d(results_dir, result_subdirs, F, F, "config")
-config_d = bind_rows(config_d,
-                     load_d(results_dir, newer_results_subdirs, num_runs, F, "config"))
+# config_d = load_d(results_dir, result_subdirs, F, F, "config")
+# config_d = bind_rows(config_d,
+#                      load_d(results_dir, newer_results_subdirs, num_runs, F, "config"))
 ```
 
 ```{r}
-config_d = config_d %>% 
-  rowwise() %>% 
-  mutate(hold_outs = list(sub("sequence_imitation", "sequenceimitation", sub("pick_up", "pickup",hold_outs)))) %>%
-  ungroup() 
+# config_d = config_d %>% 
+#   rowwise() %>% 
+#   mutate(hold_outs = list(sub("sequence_imitation", "sequenceimitation", sub("pick_up", "pickup",hold_outs)))) %>%
+#   ungroup() 
 ```
 
 # base data loading
@@ -120,7 +121,7 @@ base_d = base_d %>%
   gather(environment_and_metric, value, -epoch, -run_type, -run) %>%
   mutate(environment_and_metric=sub("pick_up", "pickup", environment_and_metric),
          environment_and_metric=sub("sequence_imitation", "sequenceimitation", environment_and_metric)) %>%
-  separate(environment_and_metric, 
+  separate(environment_and_metric,
            c("game_type", "good_color", "bad_color", "switch_colors", "switch_left_right", "metric"),
            sep="_",
            extra="merge") %>%
@@ -185,7 +186,17 @@ library_base_d = library_base_d %>%
 
 # basic plot
 ```{r}
-theme_set(theme_bw())
+theme_set(theme_classic())
+```
+
+```{r}
+# ggplot(base_d,
+#        aes(x=epoch, y=returns_mean, color=game_type, linetype=eval)) +
+#   geom_line(stat="summary",
+#             fun.y="mean") +
+#   geom_hline(yintercept=0,
+#              linetype=2) +
+#   facet_wrap(~ run_type, scales = "free")
 ```
 
 ```{r}
@@ -194,23 +205,12 @@ ggplot(base_d,
   geom_line(stat="summary",
             fun.y="mean") +
   geom_hline(yintercept=0,
-             linetype=2) +
-  facet_wrap(~ run_type, scales = "free")
-```
-
-```{r}
-ggplot(base_d %>%
-         filter(run_type == "basic"),
-       aes(x=epoch, y=returns_mean, color=game_type, linetype=eval)) +
-  geom_line(stat="summary",
-            fun.y="mean") +
-  geom_hline(yintercept=0,
-             linetype=2)+ 
+             linetype=2)+
   geom_hline(yintercept=4,
              linetype=3) +
   labs(y="Meta-learning average return") +
-  facet_wrap(~run)
-#ggsave("plots/basic_meta_learning.png")
+  facet_grid(run_type~run)
+# #ggsave("plots/basic_meta_learning.png")
 ```
 
 ```{r}
@@ -237,11 +237,11 @@ ggplot(library_base_d,
 ```
 
 ```{r}
-ggplot(base_d,
-       aes(x=epoch, y=steps_mean, color=game_type, linetype=eval)) +
-  geom_line(stat="summary",
-            fun.y="mean") +
-  facet_wrap(~ run_type, scales = "free")
+# ggplot(base_d,
+#        aes(x=epoch, y=steps_mean, color=game_type, linetype=eval)) +
+#   geom_line(stat="summary",
+#             fun.y="mean") +
+#   facet_wrap(~ run_type, scales = "free")
 ```
 
 # meta data loading
@@ -262,7 +262,7 @@ lang_meta_d = load_d(results_dir, language_homm_results_subdirs, num_runs, T, "l
 ```{r}
 meta_d = meta_d %>%
   gather(meta_data_point, value, -epoch, -run_type, -run) %>%
-  separate(meta_data_point, 
+  separate(meta_data_point,
            c("meta_task", "source", "target_and_metric"),
            sep=":|->",
            extra="merge") %>%
@@ -274,7 +274,7 @@ meta_d = meta_d %>%
          source_is_eval = check_if_eval(source)) %>%
   mutate(source=sub("pick_up", "pickup", source),
          source=sub("sequence_imitation", "sequenceimitation", source)) %>%
-  separate(source, 
+  separate(source,
            c("source_game_type", "source_good_color", "source_bad_color", "source_switch_colors", "source_switch_left_right"),
            sep="_",
            extra="merge")
@@ -306,8 +306,7 @@ lang_meta_d = lang_meta_d %>%
            sep=":|->",
            extra="merge") %>%
   mutate(eval = grepl("\\[eval\\]", meta_task),
-         meta_task = sub("\\[eval\\]", "", meta_task),
-         source_is_eval = check_if_eval(source)) %>%
+         meta_task = sub("\\[eval\\]", "", meta_task)) %>%
   mutate(source=sub("pick_up", "pickup", source),
          source=sub("sequence_imitation", "sequenceimitation", source)) %>%
   separate(source, 
@@ -319,14 +318,14 @@ lang_meta_d = lang_meta_d %>%
 # basic plot
 
 ```{r}
-ggplot(meta_d %>%
-         filter(meta_task == "switch_colors"),
-       aes(x=epoch, y=returns_mean, color=source_game_type, linetype=interaction(eval, source_is_eval))) +
-  geom_line(stat="summary",
-            fun.y="mean") +
-  geom_hline(yintercept=0,
-             linetype=2) +
-  facet_wrap(~ run_type, scales="free")
+# ggplot(meta_d %>%
+#          filter(meta_task == "switch_colors"),
+#        aes(x=epoch, y=returns_mean, color=source_game_type, linetype=interaction(eval, source_is_eval))) +
+#   geom_line(stat="summary",
+#             fun.y="mean") +
+#   geom_hline(yintercept=0,
+#              linetype=2) +
+#   facet_wrap(~ run_type, scales="free")
 ```
 
 ```{r}
@@ -340,7 +339,7 @@ ggplot(meta_d,
              linetype=3) +
   labs(y="Meta-mapping average return") +
   facet_grid(run ~ run_type)
-#ggsave("plots/meta_mapping_results.png")
+# # #ggsave("plots/meta_mapping_results.png")
 ```
 
 ```{r}
@@ -351,7 +350,7 @@ ggplot(library_meta_d %>%
             fun.y="mean") +
   geom_hline(yintercept=0,
              linetype=2) +
-  facet_wrap(~ run_type, scales="free")
+  facet_wrap(run ~ run_type, scales="free")
 ```
 
 ## language homm
@@ -363,7 +362,7 @@ ggplot(lang_meta_d %>%
             fun.y="mean") +
   geom_hline(yintercept=0,
              linetype=2) +
-  facet_wrap(~ run_type, scales="free")
+  facet_wrap(run ~ run_type, scales="free")
 ```
 
 # language baselines
@@ -379,4 +378,99 @@ ggplot(lang_d,
              linetype=3) +
   facet_grid(run ~ run_type, scales = "free")
 ``` 
+
+# comparison
+
+This is a slightly sketchy because I don't have validation and eval tasks, but since I'm doing it the same for both HoMM and language, it's a fair comparison. 
+
+```{r}
+comparison_d = bind_rows(lang_d %>%
+                           filter(eval,
+                                  run_type == "basic/language") %>%
+                           group_by(run_type, run, epoch) %>%
+                           summarise(mean_mean_returns = mean(mean_rewards)) %>%
+                           group_by(run_type, run) %>%
+                           filter(mean_mean_returns == max(mean_mean_returns)) %>%
+                           ungroup(),
+                         meta_d %>%
+                           filter(eval,
+                                  meta_task == "switch_colors",
+                                  run_type == "basic_without_library") %>%
+                           group_by(run_type, run, epoch) %>%                           
+                           summarise(mean_mean_returns = mean(returns_mean, na.rm=T)) %>%
+                           group_by(run_type, run) %>%
+                           filter(mean_mean_returns == max(mean_mean_returns)) %>%
+                           ungroup()
+                           ) %>%
+  mutate(normalized_rewards = mean_mean_returns / 4.) %>%
+  mutate(run_type = ifelse(grepl("language", run_type), "Language", "HoMM"))
+```
+
+## some quick tests
+
+```{r}
+perm_mean_diff_test = function(x, y, alpha=0.05) {
+  obs_t = t.test(x, y)$statistic
+  combined_data = c(x, y)
+  n_combined = length(combined_data)
+  n_x = length(x)
+  perm_iterate = function(x, y) {
+    perm = sample(n_combined)
+    x_samp = combined_data[perm[1:n_x]]
+    y_samp = combined_data[perm[-(1:n_x)]]
+    this_t = t.test(x_samp, y_samp)$statistic
+    return(this_t)
+  }
+  perms = replicate(500, perm_iterate(x, y))
+  quants = quantile(perms, probs=c(alpha/2, 1-alpha/2))
+  return(obs_t < quants[1] | obs_t > quants[2])
+}
+```
+
+```{r}
+set.seed(0)  # reproducibility
+perm_mean_diff_test(
+  comparison_d %>%
+    filter(run_type == "HoMM") %>%
+    pull(normalized_rewards),
+  comparison_d %>%
+    filter(run_type == "Language") %>%
+    pull(normalized_rewards)
+)
+```
+```{r}
+t.test(normalized_rewards ~ run_type,
+       comparison_d)
+```
+
+
+## and a plot
+
+
+```{r}
+ggplot(data=comparison_d,
+       aes(x=run_type, 
+           color=run_type,
+           y=normalized_rewards)) +
+  geom_hline(yintercept=1, linetype=2, alpha=0.5) +
+  geom_hline(yintercept=0., linetype=3, alpha=0.5) +
+  geom_hline(yintercept=-1, linetype=2, alpha=0.5) +
+  geom_errorbar(stat="summary",
+                fun.data="mean_cl_boot",
+                width=0.25,
+                size=1) +
+  geom_point(stat="summary",
+             fun.y="mean",
+             size=4) +
+  scale_color_manual(values=c("#e41a1c", "#477ec8")) +
+  labs(x="Model type", y="Normalized returns (switched colors)") +
+  annotate("text", x=0.6, y=0.07, alpha=0.5, label="Chance") +
+  annotate("text", x=0.7, y=1.07, alpha=0.5, label="Optimal adaptation") +
+  annotate("text", x=0.64, y=-0.93, alpha=0.5, label="No adaptation") +
+  annotate("path",x=c(1,1,2,2),y=c(1.1,1.2,1.2,1.1),alpha=0.5) +
+  annotate("text", x=1.5, y=1.28, alpha=0.5, label="p < 0.05 (both perm- and t-test)") +
+  scale_y_continuous(breaks = c(-1, 0, 1), labels = c("-100%", "0%", "100%")) +
+  guides(color=F)
+ggsave("../../../assorted_talks/HoMM/figures/grids_adaptation.png", width=6, height=4)
+```
 
