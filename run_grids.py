@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/data3/lampinen/grids_presentable/basic/",
+    "output_dir": "/data3/lampinen/grids_presentable/faster/",
 
     "run_offset": 0,
     "num_runs": 1,
@@ -33,7 +33,7 @@ run_config.update({
     "softmax_beta": 8,
     "softmax_policy": True,
 
-    "init_learning_rate": 3e-5,
+    "init_learning_rate": 3e-4,
     "init_meta_learning_rate": 3e-5,
 
     "lr_decay": 0.9,
@@ -77,7 +77,7 @@ architecture_config.update({
     "meta_batch_size": 64,
     "meta_holdout_size": 32,
 
-    "task_weight_weight_mult": 100.,
+    "task_weight_weight_mult": 1.,
     "F_weight_normalization": False,
     
     "persistent_task_reps": True,
