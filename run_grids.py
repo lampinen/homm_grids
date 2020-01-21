@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/data3/lampinen/grids_presentable/faster/",
+    "output_dir": "/data3/lampinen/grids_presentable/original_losses/",
 
     "run_offset": 0,
     "num_runs": 1,
@@ -33,7 +33,7 @@ run_config.update({
     "softmax_beta": 8,
     "softmax_policy": True,
 
-    "init_learning_rate": 3e-4,
+    "init_learning_rate": 3e-5,
     "init_meta_learning_rate": 3e-5,
 
     "lr_decay": 0.9,
@@ -96,7 +96,7 @@ if False:  # enable for language baseline
         "vocab": ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
         "persistent_task_reps": False,
 
-        "init_language_learning_rate": 3e-6,
+        "init_language_learning_rate": 3e-4,
         "eval_every": 500,  # things change faster with language
         "update_target_network_every": 5000,
     })
@@ -117,8 +117,8 @@ if False:  # enable for language base + meta
         "vocab": ["PAD"] + ["switch", "colors"] + ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
         "persistent_task_reps": False,
 
-        "init_language_learning_rate": 3e-6,
-        "init_language_meta_learning_rate": 3e-6,
+        "init_language_learning_rate": 3e-4,
+        "init_language_meta_learning_rate": 3e-4,
         "eval_every": 500,  # things change faster with language
         "update_target_network_every": 5000,
     })
@@ -194,6 +194,11 @@ class memory_buffer(object):
 
 
 
+def weird_loss(outputs, targets):
+    """I used this weird un-normalized loss accidentally in the original."""
+    return tf.nn.l2_loss(outputs - targets)
+
+
 class grids_HoMM_agent(HoMM_model.HoMM_model):
     def __init__(self, run_config=None):
         self.epsilon = run_config["init_epsilon"]
@@ -215,7 +220,9 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
             outcome_processor=lambda x: outcome_processor(
                 x, self.architecture_config["IO_num_hidden"],
                 self.architecture_config["z_dim"],
-                self.architecture_config["internal_nonlinearity"]))
+                self.architecture_config["internal_nonlinearity"]),
+            base_loss=weird_loss,
+            meta_loss=weird_loss)
 
     def _pre_build_calls(self):
         run_config = self.run_config
