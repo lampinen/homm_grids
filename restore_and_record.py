@@ -17,6 +17,7 @@ config = {
     'H_num_hidden_layers': 3,
     'internal_nonlinearity': tf.nn.leaky_relu,
     'meta_max_pool': True, # max or average across examples
+    'F_weight_normalization': False,
     'num_actions': 4,
     'softmax_beta': 8.,
     'discount': 0.85,
@@ -52,8 +53,8 @@ config = {
     'eval_every': 4000, # how many epochs between evals
     'update_target_network_every': 10000, # how many epochs between updates to the target network
     'train_meta': True, # whether to train meta tasks
-    'restore_dir': '/data3/lampinen/grids/best/',
-    'recordings_dir': '/data3/lampinen/grids/best/recordings/',
+    'restore_dir': '/data3/lampinen/grids_presentable/basic_without_library/',
+    'recordings_dir': '/data3/lampinen/grids_presentable/basic_without_library/recordings/',
 
     'num_runs': 1,
     'run_offset': 0,
