@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/data3/lampinen/grids_presentable/revised/",
+    "output_dir": "/data3/lampinen/grids_presentable/revised_2/",
 
     "run_offset": 0,
     "num_runs": 1,
@@ -26,7 +26,7 @@ run_config.update({
                   "pusher_red_blue_True_False",
                   "pick_up_red_blue_True_False"], 
 
-    "max_steps": 150,
+    "max_steps": 200,
 
     "meta_mappings": ["switch_colors"],
 
