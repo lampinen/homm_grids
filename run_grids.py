@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/data3/lampinen/grids_presentable/original_losses/",
+    "output_dir": "/data3/lampinen/grids_presentable/revised/",
 
     "run_offset": 0,
     "num_runs": 1,
@@ -48,7 +48,7 @@ run_config.update({
     "num_games_per_eval": 10,
     "refresh_mem_buffs_every": 1500,
 
-    "update_target_network_every": 10000, # how many epochs between updates to the target network
+    "update_target_network_every": 15000, # how many epochs between updates to the target network
 
     "discount": 0.85,
     
@@ -96,9 +96,9 @@ if False:  # enable for language baseline
         "vocab": ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
         "persistent_task_reps": False,
 
-        "init_language_learning_rate": 3e-4,
-        "eval_every": 500,  # things change faster with language
-        "update_target_network_every": 5000,
+        "init_language_learning_rate": 3e-5,
+        #"eval_every": 500,  # things change faster with language
+        #"update_target_network_every": 5000,
     })
 
     architecture_config.update({
@@ -117,10 +117,10 @@ if False:  # enable for language base + meta
         "vocab": ["PAD"] + ["switch", "colors"] + ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
         "persistent_task_reps": False,
 
-        "init_language_learning_rate": 3e-4,
-        "init_language_meta_learning_rate": 3e-4,
-        "eval_every": 500,  # things change faster with language
-        "update_target_network_every": 5000,
+        "init_language_learning_rate": 3e-5,
+        "init_language_meta_learning_rate": 3e-5,
+        #"eval_every": 500,  # things change faster with language
+        #"update_target_network_every": 5000,
     })
 
     architecture_config.update({
