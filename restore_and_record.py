@@ -26,9 +26,11 @@ config = {
                             # for base training.
     'game_types': ['pick_up', 'pusher'],#, 'shooter'], 
     'color_pairs': [('red', 'blue'), ('green', 'purple'), ('yellow', 'cyan'), ('pink', 'ocean'), ('forest', 'orange')], # good, bad
-    'hold_outs': ['shooter_red_blue_True_False', 'shooter_red_blue_True_True',
+    'hold_outs': [
                   'pusher_red_blue_True_False', 'pusher_red_blue_True_True',
-                  'pick_up_red_blue_True_False', 'pick_up_red_blue_True_True'],#, 'shooter_green_purple_True_False', 'shooter_green_purple_True_True', 'shooter_yellow_teal_True_False', 'shooter_yellow_teal_True_True'], 
+                  'pick_up_red_blue_True_False', 'pick_up_red_blue_True_True'
+                  'pusher_forest_orange_True_False', 'pusher_forest_orange_True_True',
+                  'pick_up_forest_orange_True_False', 'pick_up_forest_orange_True_True'],#, 'shooter_green_purple_True_False', 'shooter_green_purple_True_True', 'shooter_yellow_teal_True_False', 'shooter_yellow_teal_True_True'], 
     'meta_tasks': ["switch_colors"],#, "switch_left_right"],
     'num_epochs': 1000000,
     'combined_emb_guess_weight': "varied", 
