@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/data3/lampinen/grids_presentable/revised_2/",
+    "output_dir": "/data3/lampinen/grids_testing/testing_14/",
 
     "run_offset": 0,
     "num_runs": 1,
@@ -30,7 +30,7 @@ run_config.update({
 
     "meta_mappings": ["switch_colors"],
 
-    "softmax_beta": 8,
+    "softmax_beta": 2,
     "softmax_policy": True,
 
     "init_learning_rate": 3e-5,
@@ -48,7 +48,7 @@ run_config.update({
     "num_games_per_eval": 10,
     "refresh_mem_buffs_every": 1500,
 
-    "update_target_network_every": 15000, # how many epochs between updates to the target network
+    "update_target_network_every": 10000, # how many epochs between updates to the target network
 
     "discount": 0.85,
     
@@ -74,8 +74,8 @@ architecture_config.update({
     "F_num_hidden": 128,
     "optimizer": "RMSProp",
 
-    "meta_batch_size": 64,
-    "meta_holdout_size": 32,
+    "meta_batch_size": 32,
+    "meta_sample_size": 64,
 
     "task_weight_weight_mult": 1.,
     "F_weight_normalization": False,
@@ -203,7 +203,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
     def __init__(self, run_config=None):
         self.epsilon = run_config["init_epsilon"]
         self.discount = run_config["discount"]
-        self.meta_holdout_size = architecture_config["meta_holdout_size"]
+        self.meta_sample_size = architecture_config["meta_sample_size"]
         self.outcome_shape = architecture_config["outcome_shape"]
         self.softmax_policy = run_config["softmax_policy"]
         self.num_games_per_eval = run_config["num_games_per_eval"]
@@ -370,7 +370,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
 
             if base_or_meta == "base":
                 task_name, memory_buffer, task_index = self.base_task_lookup(task)
-                memories = [memory_buffer.sample(2) for _ in range(self.meta_batch_size + self.meta_holdout_size)]
+                memories = [memory_buffer.sample(2) for _ in range(self.meta_sample_size)]
 
                 if train_or_eval != "inference":
                     # first need to run inference to get targets
@@ -410,9 +410,9 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
 
                     feed_dict[self.base_target_ph] = targets 
                     feed_dict[self.guess_input_mask_ph] = self._random_guess_mask(
-                        len(outcomes))
+                        self.meta_sample_size, self.meta_batch_size)
                 elif call_type == "standard":
-                    prior_memories = [memory_buffer.sample(1)[0] for _ in range(self.meta_batch_size)]
+                    prior_memories = [memory_buffer.sample(1)[0] for _ in range(self.meta_sample_size)]
                     outcomes = self.outcome_creator(prior_memories + [(inference_observation, 0, 0.)])
 
                     guess_mask = np.ones([len(prior_memories) + 1], np.bool) 
