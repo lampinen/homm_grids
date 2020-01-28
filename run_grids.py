@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/data3/lampinen/grids_testing/testing_14/",
+    "output_dir": "/data3/lampinen/grids_testing/testing_20/",
 
     "run_offset": 0,
     "num_runs": 1,
@@ -26,15 +26,15 @@ run_config.update({
                   "pusher_red_blue_True_False",
                   "pick_up_red_blue_True_False"], 
 
-    "max_steps": 200,
+    "max_steps": 150,
 
     "meta_mappings": ["switch_colors"],
 
-    "softmax_beta": 2,
+    "softmax_beta": 8,
     "softmax_policy": True,
 
-    "init_learning_rate": 3e-5,
-    "init_meta_learning_rate": 3e-5,
+    "init_learning_rate": 1e-5,
+    "init_meta_learning_rate": 1e-5,
 
     "lr_decay": 0.9,
     "meta_lr_decay": 0.95,
@@ -48,7 +48,7 @@ run_config.update({
     "num_games_per_eval": 10,
     "refresh_mem_buffs_every": 1500,
 
-    "update_target_network_every": 10000, # how many epochs between updates to the target network
+    "update_target_network_every": 20000, # how many epochs between updates to the target network
 
     "discount": 0.85,
     
@@ -65,6 +65,8 @@ architecture_config.update({
    "outcome_shape": [4 + 1],  
    "output_masking": True,
 
+   "mlp_output": False,
+
    "separate_target_network": True,  # construct a separate network for e.g. Q-learning targets
 
     "IO_num_hidden": 128,
@@ -72,6 +74,7 @@ architecture_config.update({
     "H_num_hidden": 512,
     "z_dim": 512,
     "F_num_hidden": 128,
+    "F_num_hidden_layers": 3,
     "optimizer": "RMSProp",
 
     "meta_batch_size": 32,
@@ -153,6 +156,7 @@ def vision(processed_input, z_dim, reuse=False):
         print(vision_out)
     return vision_out
 
+
 def outcome_processor(outcomes, IO_num_hidden, z_dim,
                       internal_nonlinearity, reuse=False):
     with tf.variable_scope('outcome_processor', reuse=reuse):
@@ -161,6 +165,16 @@ def outcome_processor(outcomes, IO_num_hidden, z_dim,
         res = slim.fully_connected(outcome_processing_1, z_dim,
                                     activation_fn=None)
     return res
+
+
+def mlp_output_processor(output_embeddings, IO_num_hidden, output_size):
+    with tf.variable_scope("output_processor", reuse=tf.AUTO_REUSE):
+        output_hidden = slim.fully_connected(output_embeddings, IO_num_hidden,
+                                             activation_fn=tf.nn.leaky_relu)
+        processed_outputs = slim.fully_connected(output_hidden, output_size,
+                                                 activation_fn=None)
+    return processed_outputs
+
 
 # memory buffer
 class memory_buffer(object):
@@ -213,10 +227,17 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
 
         self.best_eval_indices = None
         self.best_eval_val = -np.inf 
+        if architecture_config["mlp_output"]:
+            output_processor = lambda x: mlp_output_processor(
+                x, architecture_config["IO_num_hidden"], architecture_config["output_shape"][0])
+        else:
+            output_processor = None
+
         super(grids_HoMM_agent, self).__init__(
             architecture_config=architecture_config, run_config=run_config,
             input_processor=lambda processed_input: vision(
                 processed_input, self.architecture_config["z_dim"]),
+            output_processor=output_processor,
             outcome_processor=lambda x: outcome_processor(
                 x, self.architecture_config["IO_num_hidden"],
                 self.architecture_config["z_dim"],
@@ -392,10 +413,9 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
                                              feed_dict=target_feed_dict)
 
                     # now build actual feed dict
-                    prior_memories = [x[1] for x in memories] 
+                    prior_memories = [x[0] for x in memories] 
                     outcomes = self.outcome_creator(prior_memories)
 
-                if train_or_eval != "inference":
                     feed_dict[self.base_outcome_ph] = outcomes 
 
                     feed_dict[self.base_input_ph] = np.array([x[0] for x in prior_memories])
