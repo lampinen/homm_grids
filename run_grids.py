@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/data3/lampinen/grids_testing/testing_20/",
+    "output_dir": "/data3/lampinen/grids_final/one_holdout_3/",
 
     "run_offset": 0,
     "num_runs": 1,
@@ -21,8 +21,8 @@ run_config.update({
     "game_types": ["pick_up", "pusher"],#, "shooter"], -- if reenabled, change num of actions
     "color_pairs": [("red", "blue"), ("green", "purple"), ("yellow", "cyan"), ("pink", "ocean"), ("forest", "orange")], # good, bad
 
-    "hold_outs": ["pusher_forest_orange_True_False",
-                  "pick_up_forest_orange_True_False",
+    "hold_outs": [#"pusher_forest_orange_True_False",
+                  #"pick_up_forest_orange_True_False",
                   "pusher_red_blue_True_False",
                   "pick_up_red_blue_True_False"], 
 
@@ -33,22 +33,22 @@ run_config.update({
     "softmax_beta": 8,
     "softmax_policy": True,
 
-    "init_learning_rate": 1e-5,
-    "init_meta_learning_rate": 1e-5,
+    "init_learning_rate": 3e-5,
+    "init_meta_learning_rate": 3e-5,
 
-    "lr_decay": 0.9,
-    "meta_lr_decay": 0.95,
+    "lr_decay": 0.8,
+    "meta_lr_decay": 0.9,
 
     "lr_decays_every": 30000,
     "min_learning_rate": 3e-8,
     "min_meta_learning_rate": 3e-7,
 
-    "num_epochs": 400000,
+    "num_epochs": 1000000,
     "eval_every": 4000,
     "num_games_per_eval": 10,
     "refresh_mem_buffs_every": 1500,
 
-    "update_target_network_every": 20000, # how many epochs between updates to the target network
+    "update_target_network_every": 10000, # how many epochs between updates to the target network
 
     "discount": 0.85,
     
@@ -243,7 +243,8 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
                 self.architecture_config["z_dim"],
                 self.architecture_config["internal_nonlinearity"]),
             base_loss=weird_loss,
-            meta_loss=weird_loss)
+            meta_loss=weird_loss,
+            )
 
     def _pre_build_calls(self):
         run_config = self.run_config
