@@ -13,9 +13,9 @@ from pycolab import human_ui
 from pycolab import things as plab_things
 from pycolab.prefab_parts import sprites as prefab_sprites
 
-#import matplotlib
-#matplotlib.use('Agg')
-#import matplotlib.pyplot as plot
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plot
 
 GRID_SIZE = 6  # should be even
 SCROLL_SIZE = 2 * GRID_SIZE + 1
@@ -548,15 +548,29 @@ class Environment(object):
 
 def main(argv=()):
     np.random.seed(0)
-    env = Environment(GameDef("pusher", "pink", "ocean", False, False))
-    obs, r, done = env.reset()
-    plot.imshow(obs)
-    plot.savefig("first.png")
-    for i in range(5):
-        obs, r, done = env.step(i)
-        plot.imshow(obs)
-        plot.savefig("%i.png" % i)
+    for game_type, colors in zip(["pusher", "pick_up"],
+                                 [("red", "blue"), ("forest", "orange")]):
 
+        env = Environment(GameDef(game_type, colors[0], colors[1], False, False))
+        obs, r, done = env.reset()
+        fig = plot.figure(frameon=False)
+        fig.set_size_inches(3, 3)
+        ax = plot.Axes(fig, [0., 0., 1., 1.])
+        ax.set_axis_off()
+        fig.add_axes(ax)
+        plot.imshow(obs, aspect='auto')
+        plot.savefig("figures/%s_0.png" % game_type)
+        for i in range(10):
+            obs, r, done = env.step(np.random.randint(4))
+            fig = plot.figure(frameon=False)
+            fig.set_size_inches(3, 3)
+            ax = plot.Axes(fig, [0., 0., 1., 1.])
+            ax.set_axis_off()
+            fig.add_axes(ax)
+            plot.imshow(obs, aspect='auto')
+            plot.savefig("figures/%s_%i.png" % (game_type, i + 1))
+
+    exit()
     for game_type in ["pusher", "shooter", "sequence_imitation", "pick_up"]:
         game = make_game(game_type, "red", "blue")
 
