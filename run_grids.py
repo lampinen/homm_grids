@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/data3/lampinen/grids_final/one_holdout_3/",
+    "output_dir": "/mnt/fs4/lampinen/grids_final/lessplit_wn_one_holdout/",
 
     "run_offset": 0,
     "num_runs": 1,
@@ -33,15 +33,15 @@ run_config.update({
     "softmax_beta": 8,
     "softmax_policy": True,
 
-    "init_learning_rate": 3e-5,
-    "init_meta_learning_rate": 3e-5,
+    "init_learning_rate": 1e-4,
+    "init_meta_learning_rate": 1e-4,
 
     "lr_decay": 0.8,
-    "meta_lr_decay": 0.9,
+    "meta_lr_decay": 0.95,
 
-    "lr_decays_every": 30000,
-    "min_learning_rate": 3e-8,
-    "min_meta_learning_rate": 3e-7,
+    "lr_decays_every": 20000,
+    "min_learning_rate": 1e-8,
+    "min_meta_learning_rate": 1e-7,
 
     "num_epochs": 1000000,
     "eval_every": 4000,
@@ -80,8 +80,8 @@ architecture_config.update({
     "meta_batch_size": 32,
     "meta_sample_size": 64,
 
-    "task_weight_weight_mult": 1.,
-    "F_weight_normalization": False,
+    "task_weight_weight_mult": 10.,
+    "F_weight_normalization": True,
     
     "persistent_task_reps": True,
     "combined_emb_guess_weight": "varied",
