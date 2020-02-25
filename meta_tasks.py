@@ -31,10 +31,10 @@ def change_colors(game_def, colors_1_good, colors_1_bad,
         switched_colors=game_def.switched_colors,
         switched_left_right=game_def.switched_left_right)
 
-def generate_meta_pairings(meta_tasks, train_environment_defs,
+def generate_meta_pairings(meta_mappings, train_environment_defs,
                            eval_environment_defs):
     meta_pairings = {}
-    for meta_task in meta_tasks:
+    for meta_task in meta_mappings:
         meta_pairings[meta_task] = {"train": [],
                                     "eval": []}
         if meta_task == "switch_colors":
