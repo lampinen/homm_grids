@@ -610,7 +610,7 @@ ggplot(data=comparison_d %>%
   geom_hline(yintercept=-1, linetype=2, alpha=0.5) +
   geom_errorbar(stat="summary",
                 fun.data="mean_cl_boot",
-                width=0.25,
+                width=0.5,
                 size=1,
                 position=position_dodge(0.5)) +
   geom_point(stat="summary",
@@ -619,12 +619,13 @@ ggplot(data=comparison_d %>%
              position=position_dodge(0.5)) +
   scale_color_manual(values=c("#e41a1c", "#477ec8")) +
   labs(x="Task", y="Normalized returns (zero-shot)") +
-  annotate("text", x=0.6, y=0.07, alpha=0.5, label="Chance") +
-  annotate("text", x=0.7, y=1.07, alpha=0.5, label="Optimal adaptation") +
-  annotate("text", x=0.64, y=-0.93, alpha=0.5, label="No adaptation") +
-  scale_y_continuous(breaks = c(-1, 0, 1), labels = c("-100%", "0%", "100%")) +
+  annotate("text", x=0.6, y=0.1, alpha=0.5, label="Chance") +
+  annotate("text", x=0.86, y=1.1, alpha=0.5, label="Optimal adaptation") +
+  annotate("text", x=0.75, y=-1.1, alpha=0.5, label="No adaptation") +
+  scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), labels = c("-100%", "-50%", "0%", "50%", "100%")) +
+  scale_x_discrete(breaks=c("pickup", "pusher"), labels=c("Pick-up", "Push-off")) +
   guides(color=guide_legend(title=NULL)) +
-  theme(legend.position=c(0.9, 0.8)) +
+  theme(legend.position=c(0.85, 0.5)) 
 ggsave("../../metamapping_paper/figures/grids_adaptation.png", width=4, height=3)
 ```
 
