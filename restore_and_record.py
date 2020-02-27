@@ -204,29 +204,36 @@ class grids_HoMM_recording_agent(grids_HoMM_agent):
 
     def base_embedding_eval(self, embedding, task):
         returns = np.zeros(self.num_games_per_eval)
+        steps = np.zeros(self.num_games_per_eval)
 
         for game_i in range(self.num_games_per_eval):
-            _, _, total_return = self.play(task,
-                                           remember=False,
-                                           cached=False,
-                                           from_embedding=embedding,
-                                           record=True)
+            _, step, total_return = self.play(task,
+                                              remember=False,
+                                              cached=False,
+                                              from_embedding=embedding,
+                                              record=True)
             returns[game_i] = total_return
+            steps[game_i] = step
 
-        return [np.mean(returns)]
+        return [(np.mean(returns), np.mean(steps))]
 
-    def base_language_eval(self, task, train_or_eval):
-        returns = np.zeros(self.num_games_per_eval)
+    def run_meta_true_eval(self):
+        names, losses = super(grids_HoMM_recording_agent, self).run_meta_true_eval()
+        losses, steps = list(zip(*losses))  # unpack 
+        return names, losses, steps
 
-        for game_i in range(self.num_games_per_eval):
-            _, _, total_return = self.play(task,
-                                           remember=False,
-                                           cached=False,
-                                           from_language=True,
-                                           record=True)
-            returns[game_i] = total_return
-        task_name, _, _ = self.base_task_lookup(task)
-        return [task_name + "_mean_rewards"], [np.mean(returns)]
+#    def base_language_eval(self, task, train_or_eval):
+#        returns = np.zeros(self.num_games_per_eval)
+#
+#        for game_i in range(self.num_games_per_eval):
+#            _, _, total_return = self.play(task,
+#                                           remember=False,
+#                                           cached=False,
+#                                           from_language=True,
+#                                           record=True)
+#            returns[game_i] = total_return
+#        task_name, _, _ = self.base_task_lookup(task)
+#        return [task_name + "_mean_rewards"], [np.mean(returns)]
 
     def _save_recording(self, recording, filename):
         fig = plt.figure()
@@ -284,7 +291,8 @@ for run_i in range(recording_config["run_offset"],
     my_agent.restore_parameters(recording_config["restore_dir"] + filename_prefix + "best_eval_checkpoint")
 
     my_agent.fill_buffers()
-
+    
+    stats_file = recording_config["recordings_dir"] + filename_prefix + "eval_stats.csv" 
     if run_config["train_language_base"]:
 #        my_agent.update_base_task_embeddings()
 #        if run_config["train_language_meta"]:
@@ -292,9 +300,14 @@ for run_i in range(recording_config["run_offset"],
         raise NotImplementedError("Recordings for language models aren't implemented (yet)")
 
     my_agent.num_games_per_eval = recording_config["num_games_to_record"]
-    (m_names, m_losses) = my_agent.run_meta_true_eval()
+    (m_names, m_losses, m_steps) = my_agent.run_meta_true_eval()
 
-    print(m_names, m_losses)
+    print(m_names, m_losses, m_steps)
+
+    with open(stats_file, "w") as sf:
+        sf.write("mapping, mean_reward, mean_steps\n")
+        for m, r, s in zip(m_names, m_losses, m_steps):
+            sf.write("{}, {}, {}\n".format(m, r, s))
 
     my_agent.save_recordings(recording_config["recordings_dir"], filename_prefix)
 
