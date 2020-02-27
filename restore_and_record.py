@@ -1,79 +1,270 @@
-import numpy as np
-import tensorflow as tf
+from itertools import permutations
+
 import time
 
+from copy import deepcopy
+
+import numpy as np
+import tensorflow as tf
+import tensorflow.contrib.slim as slim
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.animation
+
+from HoMM.configs import default_run_config, default_architecture_config
 import grid_tasks
+import meta_tasks
 
-from agents import random_agent, EML_DQN_agent
+from run_grids import grids_HoMM_agent
 
-config = {
-    'z_dim': 512, # dimension of the latent embedding space Z
-    'T_num_hidden': 128, # num hidden units in outcome (target) encoder
-    'M_num_hidden': 1024, # num hidden in meta network
-    'H_num_hidden': 512, # " " " hyper network
-    'F_num_hidden': 128, # " " " task network that H parameterizes
-    'task_weight_weight_mult': 1.,
-    'F_num_hidden_layers': 3,
-    'H_num_hidden_layers': 3,
-    'internal_nonlinearity': tf.nn.leaky_relu,
-    'meta_max_pool': True, # max or average across examples
-    'F_weight_normalization': False,
-    'num_actions': 4,
-    'softmax_beta': 8.,
-    'discount': 0.85,
-    'max_steps': 150,
-    'meta_batch_size': 64, # how many examples the meta-net is conditioned on
-                            # for base training.
-    'game_types': ['pick_up', 'pusher'],#, 'shooter'], 
-    'color_pairs': [('red', 'blue'), ('green', 'purple'), ('yellow', 'cyan'), ('pink', 'ocean'), ('forest', 'orange')], # good, bad
-    'hold_outs': [
-                  'pusher_red_blue_True_False', 'pusher_red_blue_True_True',
-                  'pick_up_red_blue_True_False', 'pick_up_red_blue_True_True'
-                  'pusher_forest_orange_True_False', 'pusher_forest_orange_True_True',
-                  'pick_up_forest_orange_True_False', 'pick_up_forest_orange_True_True'],#, 'shooter_green_purple_True_False', 'shooter_green_purple_True_True', 'shooter_yellow_teal_True_False', 'shooter_yellow_teal_True_True'], 
-    'meta_tasks': ["switch_colors"],#, "switch_left_right"],
-    'num_epochs': 1000000,
-    'combined_emb_guess_weight': "varied", 
-    'emb_match_loss_weight': 0.2,  # weight on the loss that tries to match the
-                                   # embedding guess and cache
-    'play_cached': False, # if true, use a cached embedding to play 
-                         # (for efficiency)
-    'eval_cached': True, # use cached embedding for eval 
-    'print_eval_Qs': False, # for debugging
-    'softmax_policy': True, # if true, sample actions from probs, else greedy
-    'optimizer': 'RMSProp',
-    'init_lr': 3e-5,
-    'init_meta_lr': 7e-6,
-    'lr_decay': 0.9,
-    'meta_lr_decay': 0.95,
-    'epsilon_decrease': 0.03,
-    'min_epsilon': 0.15,
-    'lr_decays_every': 30000,
-    'min_lr': 3e-8,
-    'min_meta_lr': 3e-7,
-    'play_every': 1500, # how many epochs between plays
-    'eval_every': 4000, # how many epochs between evals
-    'update_target_network_every': 10000, # how many epochs between updates to the target network
-    'train_meta': True, # whether to train meta tasks
-    'restore_dir': '/data3/lampinen/grids_presentable/basic_without_library/',
-    'recordings_dir': '/data3/lampinen/grids_presentable/basic_without_library/recordings/',
+run_config = default_run_config.default_run_config
+run_config.update({
+    "run_offset": 0,
+    "num_runs": 1,
 
-    'num_runs': 1,
-    'run_offset': 0,
+    "game_types": ["pick_up", "pusher"],#, "shooter"], -- if reenabled, change num of actions
+    "color_pairs": [("red", "blue"), ("green", "purple"), ("yellow", "cyan"), ("pink", "ocean"), ("forest", "orange")], # good, bad
 
-    'num_games_to_record': 10,
+    "hold_outs": [#"pusher_forest_orange_True_False",
+                  #"pick_up_forest_orange_True_False",
+                  "pusher_red_blue_True_False",
+                  "pick_up_red_blue_True_False"],
+
+    "max_steps": 150,
+
+    "meta_mappings": ["switch_colors"],
+
+    "softmax_beta": 8,
+    "softmax_policy": True,
+
+    "init_learning_rate": 1e-4,
+    "init_meta_learning_rate": 1e-4,
+
+    "lr_decay": 0.8,
+    "meta_lr_decay": 0.95,
+
+    "lr_decays_every": 20000,
+    "min_learning_rate": 1e-8,
+    "min_meta_learning_rate": 1e-7,
+
+    "num_epochs": 1000000,
+    "eval_every": 4000,
+    "num_games_per_eval": 10,
+    "refresh_mem_buffs_every": 1500,
+
+    "update_target_network_every": 10000, # how many epochs between updates to the target network
+
+    "discount": 0.85,
+
+    "init_epsilon": 1.,  # exploration probability
+    "epsilon_decay": 0.03,  # additive decay
+    "min_epsilon": 0.15,
+})
+
+architecture_config = default_architecture_config.default_architecture_config
+architecture_config.update({
+   "input_shape": [91, 91, 3],
+   "output_shape": [4],  
+
+   "outcome_shape": [4 + 1],  
+   "output_masking": True,
+
+   "mlp_output": False,
+
+   "separate_target_network": True,  # construct a separate network for e.g. Q-learning targets
+
+    "IO_num_hidden": 128,
+    "M_num_hidden": 1024,
+    "H_num_hidden": 512,
+    "z_dim": 512,
+    "F_num_hidden": 128,
+    "F_num_hidden_layers": 3,
+    "optimizer": "RMSProp",
+
+    "meta_batch_size": 32,
+    "meta_sample_size": 64,
+
+    "task_weight_weight_mult": 10.,
+    "F_weight_normalization": True,
+    
+    "persistent_task_reps": True,
+    "combined_emb_guess_weight": "varied",
+    "emb_match_loss_weight": 0.2,
+})
+
+if False:  # enable for language baseline
+    run_config.update({
+        "output_dir": run_config["output_dir"] + "language/",
+
+        "train_language_base": True,
+        "train_base": False,
+        "train_meta": False,
+
+        "vocab": ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
+        "persistent_task_reps": False,
+
+        "init_language_learning_rate": 3e-5,
+        #"eval_every": 500,  # things change faster with language
+        #"update_target_network_every": 5000,
+    })
+
+    architecture_config.update({
+        "max_sentence_len": 5,
+    })
+
+if False:  # enable for language base + meta 
+    run_config.update({
+        "output_dir": run_config["output_dir"] + "language_HoMM/",
+
+        "train_language_base": True,
+        "train_language_meta": True,
+        "train_base": False,
+        "train_meta": False,
+
+        "vocab": ["PAD"] + ["switch", "colors"] + ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
+        "persistent_task_reps": False,
+
+        "init_language_learning_rate": 3e-5,
+        "init_language_meta_learning_rate": 3e-5,
+        #"eval_every": 500,  # things change faster with language
+        #"update_target_network_every": 5000,
+    })
+
+    architecture_config.update({
+        "max_sentence_len": 5,
+    })
+
+recording_config = {
+    "restore_dir": "/mnt/fs4/lampinen/grids_final/lessplit_wn_one_holdout/",
+
+    "recordings_dir": "/mnt/fs4/lampinen/grids_final/lessplit_wn_one_holdout/recordings/",
+
+    "num_runs": 5,
+    "run_offset": 0,
+
+    "num_games_to_record": 5,
 }
 
-for run_i in range(config['run_offset'], 
-                   config['run_offset'] + config['num_runs']):
-    config["run"] = run_i
-    filename_prefix = "run_%i_" % run_i
+class grids_HoMM_recording_agent(grids_HoMM_agent):
+    def __init__(self, run_config, architecture_config):
+        super(grids_HoMM_recording_agent, self).__init__(
+            run_config=run_config,
+            architecture_config=architecture_config)
+        self.recordings = {}
+
+    def play(self, environment, max_steps=1e4, remember=True,
+             cached=False, from_embedding=None, print_Qs=False,
+             from_language=False, record=False):
+        (environment_name,
+         memory_buffer,
+         env_index) = self.base_task_lookup(environment)
+        if isinstance(environment, str):
+            environment = self.env_str_to_task[environment]
+        step = 0
+        done = False
+        total_return = 0.
+        obs, _, _ = environment.reset()
+        if record:
+            this_recording = [obs]
+
+        while (not done and step < max_steps):
+            step += 1
+            conditioning_obs = obs
+            if from_embedding is not None:
+                action = self.choose_action(environment, conditioning_obs,
+                                            cached=False,
+                                            from_embedding=from_embedding)
+            else:
+                action = self.choose_action(environment, conditioning_obs,
+                                            cached=cached, from_language=from_language)
+            this_reward = 0.
+            obs, r, done = environment.step(action)
+            this_reward += r
+            total_return += this_reward
+            if record:
+                this_recording.append(obs)
+
+            if remember:
+                memory_buffer.add((conditioning_obs,
+                                   action,
+                                   this_reward))
+
+        if remember:
+            memory_buffer.end_experience()
+
+        if record:
+            if environment_name not in self.recordings:
+                self.recordings[environment_name] = [this_recording]
+            else:
+                self.recordings[environment_name].append(this_recording) 
+
+        return done, step, total_return
+
+    def base_embedding_eval(self, embedding, task):
+        returns = np.zeros(self.num_games_per_eval)
+
+        for game_i in range(self.num_games_per_eval):
+            _, _, total_return = self.play(task,
+                                           remember=False,
+                                           cached=False,
+                                           from_embedding=embedding,
+                                           record=True)
+            returns[game_i] = total_return
+
+        return [np.mean(returns)]
+
+    def base_language_eval(self, task, train_or_eval):
+        returns = np.zeros(self.num_games_per_eval)
+
+        for game_i in range(self.num_games_per_eval):
+            _, _, total_return = self.play(task,
+                                           remember=False,
+                                           cached=False,
+                                           from_language=True,
+                                           record=True)
+            returns[game_i] = total_return
+        task_name, _, _ = self.base_task_lookup(task)
+        return [task_name + "_mean_rewards"], [np.mean(returns)]
+
+    def _save_recording(self, recording, filename):
+        fig = plt.figure()
+        p = plt.imshow(recording[0])
+
+        def init():
+            p.set_array(recording[0])
+            return p,
+
+        def frame(i):
+            p.set_array(recording[i])
+            return p,
+
+        anim = matplotlib.animation.FuncAnimation(
+            fig, frame, init_func=init, frames=len(recording))
+        anim.save(filename, writer='imagemagick', fps=10)
+        plt.close()
+
+    def save_recordings(self, recording_path, filename_prefix):
+        for env_name, recordings in self.recordings.items():
+            for i, recording in enumerate(recordings):
+                self._save_recording(
+                    recording,
+                    recording_path + filename_prefix + "%s_recording_%i.gif" % (env_name, i))
+
+
+
+for run_i in range(recording_config["run_offset"], 
+                   recording_config["run_offset"] + recording_config["num_runs"]):
+    recording_config["run"] = run_i
+    filename_prefix = "run%i_" % run_i
     np.random.seed(run_i)
     tf.set_random_seed(run_i)
+    run_config["this_run"] = run_i
 
     environment_defs = [] 
-    for game_type in config["game_types"]:
-        for good_color, bad_color in config["color_pairs"]:
+    for game_type in run_config["game_types"]:
+        for good_color, bad_color in run_config["color_pairs"]:
             for switched_colors in [False, True]:
                 for switched_left_right in [False]:#, True]:
                     environment_defs.append(grid_tasks.GameDef(
@@ -83,29 +274,28 @@ for run_i in range(config['run_offset'],
                         switched_colors=switched_colors,
                         switched_left_right=switched_left_right))
 
-    config["games"] = [str(e) for e in environment_defs]
+    recording_config["games"] = [str(e) for e in environment_defs]
     environments = [grid_tasks.Environment(e,
-                                           max_steps=config["max_steps"],
-                                           num_actions=config["num_actions"]) for e in environment_defs]
+                                           max_steps=run_config["max_steps"],
+                                           num_actions=architecture_config["output_shape"][0]) for e in environment_defs]
 
-    train_environments = [e for e in environments if str(e) not in config["hold_outs"]]
-    eval_environments = [e for e in environments if str(e) in config["hold_outs"]]
+    my_agent = grids_HoMM_recording_agent(run_config=run_config, architecture_config=architecture_config)
 
-    my_agent = EML_DQN_agent(config=config,
-                             train_environments=train_environments,
-                             eval_environments=eval_environments)
+    my_agent.restore_parameters(recording_config["restore_dir"] + filename_prefix + "best_eval_checkpoint")
 
-    my_agent.restore_parameters(config["restore_dir"] + filename_prefix + "best_checkpoint")
+    my_agent.fill_buffers()
 
-    my_agent.fill_memory_buffers(environments)
-    my_agent.refresh_meta_dataset_cache()
+    if run_config["train_language_base"]:
+#        my_agent.update_base_task_embeddings()
+#        if run_config["train_language_meta"]:
+#            my_agent.update_meta_task_embeddings()
+        raise NotImplementedError("Recordings for language models aren't implemented (yet)")
 
-    meta_tasks = config["meta_tasks"]
-    (m_names, m_steps_mean, m_steps_se,
-     m_returns_mean, m_returns_se) = my_agent.do_meta_true_eval(
-        meta_tasks, num_games=config['num_games_to_record'], record_games=True)
-    print(m_returns_mean)
+    my_agent.num_games_per_eval = recording_config["num_games_to_record"]
+    (m_names, m_losses) = my_agent.run_meta_true_eval()
 
-    my_agent.save_recordings(config['recordings_dir'], filename_prefix)
+    print(m_names, m_losses)
+
+    my_agent.save_recordings(recording_config["recordings_dir"], filename_prefix)
 
     tf.reset_default_graph()
