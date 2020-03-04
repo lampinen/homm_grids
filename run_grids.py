@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/mnt/fs4/lampinen/grids_final/lessplit_wn_100step_one_holdout/",
+    "output_dir": "/mnt/fs4/lampinen/grids_final/lessplit_wn_one_holdout/",
 
     "run_offset": 0,
     "num_runs": 1,
@@ -26,7 +26,7 @@ run_config.update({
                   "pusher_red_blue_True_False",
                   "pick_up_red_blue_True_False"], 
 
-    "max_steps": 100,
+    "max_steps": 150,
 
     "meta_mappings": ["switch_colors"],
 
@@ -214,7 +214,7 @@ def weird_loss(outputs, targets):
 
 
 class grids_HoMM_agent(HoMM_model.HoMM_model):
-    def __init__(self, run_config=None):
+    def __init__(self, run_config=None, architecture_config=None):
         self.epsilon = run_config["init_epsilon"]
         self.discount = run_config["discount"]
         self.meta_sample_size = architecture_config["meta_sample_size"]
@@ -585,12 +585,14 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         
 
 ## stuff
-for run_i in range(run_config["run_offset"], run_config["run_offset"] + run_config["num_runs"]):
-    np.random.seed(run_i)
-    tf.set_random_seed(run_i)
-    run_config["this_run"] = run_i
+if __name__ == "__main__":
+    for run_i in range(run_config["run_offset"], run_config["run_offset"] + run_config["num_runs"]):
+        np.random.seed(run_i)
+        tf.set_random_seed(run_i)
+        run_config["this_run"] = run_i
 
-    model = grids_HoMM_agent(run_config=run_config)
-    model.run_training()
+        model = grids_HoMM_agent(run_config=run_config,
+                                 architecture_config=architecture_config)
+        model.run_training()
 
     tf.reset_default_graph()
