@@ -15,14 +15,10 @@ library(lmerTest)
 
 results_dir = "../results/grids_final/"
 
-language_homm_results_subdirs = c()#"basic/language_HoMM")
+language_homm_results_subdirs = c("lessplit_wn_one_holdout/language_HoMM")
 
-# library_results_subdirs = c("lessplit", "lessplit_wn")
-# language_results_subdirs = c("lessplit/language")
-# hold_out_regex = "red_blue_True|forest_orange_True"  # NOTE: we assume hold outs are the same across runs
-
-language_results_subdirs = c("one_holdout_7/language", "lessplit_wn_one_holdout/language", "lessplit_wn_100step_one_holdout/language")
-library_results_subdirs = c("one_holdout_7", "lessplit_one_holdout", "lessplit_wn_one_holdout", "lessplit_wn_100step_one_holdout", "lesssplit_smaller_one_holdout")
+language_results_subdirs = c("lessplit_wn_one_holdout/language")
+library_results_subdirs = c("lessplit_one_holdout", "lessplit_wn_one_holdout", "lessplit_wn_one_holdout_tcnh")
 hold_out_regex = "red_blue_True"  # NOTE: we assume hold outs are the same across runs
 
 
@@ -264,7 +260,7 @@ library_meta_d = load_d(results_dir, library_results_subdirs, num_runs, T, "meta
 ```
 
 ```{r}
-# lang_meta_d = load_d(results_dir, language_homm_results_subdirs, num_runs, T, "language_meta_true_losses")
+lang_meta_d = load_d(results_dir, language_homm_results_subdirs, num_runs, T, "language_meta_true_losses")
 ```
 
 ```{r}
@@ -308,20 +304,20 @@ library_meta_d = library_meta_d %>%
 ```
 
 ```{r}
-# lang_meta_d = lang_meta_d %>%
-#   gather(meta_data_point, value, -epoch, -run_type, -run) %>%
-#   separate(meta_data_point, 
-#            c("meta_task", "meta_mapping_toe", "base_task_toe", "source", "target"),
-#            sep=":|->",
-#            extra="merge") %>%
-#   mutate(eval = grepl("\\[eval\\]", meta_task),
-#          meta_task = sub("\\[eval\\]", "", meta_task)) %>%
-#   mutate(source=sub("pick_up", "pickup", source),
-#          source=sub("sequence_imitation", "sequenceimitation", source)) %>%
-#   separate(source, 
-#            c("source_game_type", "source_good_color", "source_bad_color", "source_switch_colors", "source_switch_left_right"),
-#            sep="_",
-#            extra="merge")
+lang_meta_d = lang_meta_d %>%
+  gather(meta_data_point, value, -epoch, -run_type, -run) %>%
+  separate(meta_data_point, 
+           c("meta_task", "meta_mapping_toe", "base_task_toe", "source", "target"),
+           sep=":|->",
+           extra="merge") %>%
+  mutate(eval = grepl("\\[eval\\]", meta_task),
+         meta_task = sub("\\[eval\\]", "", meta_task)) %>%
+  mutate(source=sub("pick_up", "pickup", source),
+         source=sub("sequence_imitation", "sequenceimitation", source)) %>%
+  separate(source, 
+           c("source_game_type", "source_good_color", "source_bad_color", "source_switch_colors", "source_switch_left_right"),
+           sep="_",
+           extra="merge")
 ```
 
 # basic plot
@@ -408,14 +404,14 @@ ggplot(library_meta_d %>%
 ```
 ## language homm
 ```{r}
-# ggplot(lang_meta_d %>%
-#          filter(meta_task == "switch_colors"),
-#        aes(x=epoch, y=value, color=source_game_type, linetype=base_task_toe)) +
-#   geom_line(stat="summary",
-#             fun.y="mean") +
-#   geom_hline(yintercept=0,
-#              linetype=2) +
-#   facet_wrap(run ~ run_type, scales="free")
+ggplot(lang_meta_d %>%
+         filter(meta_task == "switch_colors"),
+       aes(x=epoch, y=value, color=source_game_type, linetype=base_task_toe)) +
+  geom_line(stat="summary",
+            fun.y="mean") +
+  geom_hline(yintercept=0,
+             linetype=2) +
+  facet_wrap(run ~ run_type, scales="free")
 ```
 
 # language baselines
@@ -451,11 +447,13 @@ ggplot(lang_d %>%
              linetype=2) +
   scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), labels = c("-100%", "-50%", "0%", "50%", "100%")) +
   xlim(0, 300000) +
+  labs(x="Epoch", y="Normalized returns (evaluation tasks)") +
   scale_color_manual(values=c("#8c510a", "#80cdc1"), breaks=c("pickup", "pusher"), labels=c("Pick-up", "Push-off")) +
   guides(color=guide_legend(title=NULL),
          linetype=guide_legend(title=NULL))
 
 ggsave("../../metamapping_paper/figures/grids_language_learning_curves.png", width=4, height=3)
+ggsave("../../../psych/dissertation/4-extending/figures/grids_language_learning_curves.png", width=4, height=3)
 ``` 
 
 
@@ -520,6 +518,7 @@ comparison_d = bind_rows(
            run_type == "lessplit_wn_one_holdout/language") %>%
     group_by(run, epoch, game_type, eval) %>%
     summarize(mean_reward = mean(mean_rewards)) %>%
+    ungroup() %>%
     unite("game_and_toe", game_type, eval, sep=":") %>%
     spread(game_and_toe, mean_reward) %>%
     mutate(above_criterion = `pusher:FALSE` > lang_criterion & `pickup:FALSE` > lang_criterion) %>%
@@ -527,20 +526,21 @@ comparison_d = bind_rows(
     select(-contains("FALSE")) %>%
     mutate(run_type = "Language")  %>%
     rename(pusher=`pusher:TRUE`, pickup=`pickup:TRUE`),
-library_meta_d %>%
-  filter(meta_task == "switch_colors",
-         epoch > 50000,
-         run_type == "lessplit_wn_one_holdout") %>%
-  group_by(source_game_type, base_task_toe, run, epoch) %>%
-  summarize(mean_reward = mean(value), switch_colors_mapping_loss=head(switch_colors_mapping_loss, 1)) %>%
-  unite("game_and_toe", source_game_type, base_task_toe, sep=":") %>%
-  spread(game_and_toe, mean_reward) %>%
-  mutate(above_criterion = `pusher:example_is_train` > criterion & `pickup:example_is_train` > criterion) %>%
-  filter(above_criterion) %>%
-  select(-contains("example_is_train"), -switch_colors_mapping_loss) %>%
-  mutate(run_type = "HoMM") %>%
-  rename(pusher=`pusher:example_is_eval`, pickup=`pickup:example_is_eval`)
-  ) %>%
+  library_meta_d %>%
+    filter(meta_task == "switch_colors",
+           epoch > 50000,
+           run_type %in% c("lessplit_wn_one_holdout", "lessplit_wn_one_holdout_tcnh")) %>%
+    group_by(run_type, source_game_type, base_task_toe, run, epoch) %>%
+    summarize(mean_reward = mean(value), switch_colors_mapping_loss=head(switch_colors_mapping_loss, 1)) %>%
+    ungroup() %>%
+    unite("game_and_toe", source_game_type, base_task_toe, sep=":") %>%
+    spread(game_and_toe, mean_reward) %>%
+    mutate(above_criterion = `pusher:example_is_train` > criterion & `pickup:example_is_train` > criterion) %>%
+    filter(above_criterion) %>%
+    select(-contains("example_is_train"), -switch_colors_mapping_loss) %>%
+    mutate(run_type = ifelse(run_type == "lessplit_wn_one_holdout", "HoMM", "HoMM_tcnh")) %>%
+    rename(pusher=`pusher:example_is_eval`, pickup=`pickup:example_is_eval`)
+) %>%
   select(-above_criterion)
 ```
 
@@ -627,6 +627,7 @@ lmer(normalized_rewards ~ run_type + target + (1|run),
 
 ```{r}
 ggplot(data=comparison_d %>%
+         filter(run_type %in% c("HoMM", "Language")) %>%
          mutate(run_type=factor(run_type, 
                                 levels=c("HoMM", "Language"),
                                 labels=c("HoMM", "Language\ngeneralization"))),
@@ -655,6 +656,7 @@ ggplot(data=comparison_d %>%
   guides(color=F)#guide_legend(title=NULL)) +
 #  theme(legend.position=c(0.85, 0.5)) 
 ggsave("../../metamapping_paper/figures/grids_adaptation.png", width=4, height=3)
+ggsave("../../../psych/dissertation/4-extending/figures/grids_adaptation_results.png", width=4, height=3)
 ```
 
 ```{r}
@@ -740,6 +742,7 @@ for (this_lang_criterion in c("strict", "loose")) {
     guides(color=guide_legend(title=NULL)) +
     theme(legend.position=c(0.85, 0.25)) 
   ggsave(sprintf("../../metamapping_paper/figures/grids_adaptation_correlation_%s.png", this_lang_criterion), width=4, height=3)
+  ggsave(sprintf("../../../psych/dissertation/4-extending/figures/grids_adaptation_correlation_%s.png", this_lang_criterion), width=4, height=3)
 }
 ```
 
@@ -770,6 +773,7 @@ ggplot(perf_corr_d,
   guides(color=guide_legend(title=NULL)) +
   theme(legend.position=c(0.85, 0.25)) 
 ggsave("../../metamapping_paper/figures/grids_adaptation_correlation_loose_by_run.png", width=8, height=5)
+ggsave("../../../psych/dissertation/4-extending/figures/grids_adaptation_correlation_loose_by_run.png", width=8, height=5)
 ```
 ### statistics
 
@@ -788,4 +792,42 @@ cor.test(~ pusher + pickup,
 cor.test(~ pusher + pickup,
          perf_corr_d %>%
            filter(run_type == "HoMM"))
+```
+
+# tcnh comparison
+
+
+```{r}
+ggplot(data=comparison_d %>%
+         filter(run_type %in% c("HoMM", "HoMM_tcnh")) %>%
+         mutate(run_type=factor(run_type, 
+                                levels=c("HoMM", "HoMM_tcnh"),
+                                labels=c("HyperNetwork\narchitecture",
+                                         "Task concatenated\narchitecture"))),
+       aes(x=target, 
+           color=run_type,
+           y=normalized_rewards)) +
+  geom_hline(yintercept=1, linetype=2, alpha=0.5) +
+  geom_hline(yintercept=0., linetype=3, alpha=0.5) +
+  geom_hline(yintercept=-1, linetype=2, alpha=0.5) +
+  geom_errorbar(stat="summary",
+                fun.data="mean_cl_boot",
+                width=0.5,
+                size=1,
+                position=position_dodge(0.5)) +
+  geom_point(stat="summary",
+             fun.y="mean",
+             size=4,
+             position=position_dodge(0.5)) +
+  scale_color_manual(values=c("#e41a1c", "#841010")) +
+  labs(x="Task", y="Normalized returns (evaluation tasks)") +
+  annotate("text", x=0.6, y=0.1, alpha=0.5, label="Chance") +
+  annotate("text", x=0.86, y=1.1, alpha=0.5, label="Optimal adaptation") +
+  annotate("text", x=0.75, y=-1.1, alpha=0.5, label="No adaptation") +
+  scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), labels = c("-100%", "-50%", "0%", "50%", "100%")) +
+  scale_x_discrete(breaks=c("pickup", "pusher"), labels=c("Pick-up", "Push-off")) +
+  guides(color=guide_legend(title=NULL)) +
+  theme(legend.position=c(0.85, 0.25)) 
+ggsave("../../metamapping_paper/figures/grids_hyper_vs_tcnh.png", width=4, height=3)
+ggsave("../../../psych/dissertation/4-extending/figures/grids_hyper_vs_tcnh.png", width=4, height=3)
 ```
