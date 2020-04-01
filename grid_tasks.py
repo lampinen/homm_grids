@@ -13,9 +13,9 @@ from pycolab import human_ui
 from pycolab import things as plab_things
 from pycolab.prefab_parts import sprites as prefab_sprites
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plot
+#import matplotlib
+#matplotlib.use('Agg')
+#import matplotlib.pyplot as plot
 
 GRID_SIZE = 6  # should be even
 SCROLL_SIZE = 2 * GRID_SIZE + 1
@@ -68,66 +68,64 @@ COLOURS.update({
     WALL_CHAR: (0.5, 0.5, 0.5),
     })
 
-def make_game(game_type, good_color, bad_color, switched_colors=False):
-    if switched_colors:
-        good_color, bad_color = bad_color, good_color  # switcheroo
+def make_game(game_type, good_object_color, bad_object_color, switched_good_bad=False):
+    if switched_good_bad:
+        good_object_color, bad_object_color = bad_object_color, good_object_color  # switcheroo
 
     these_sprites = {}
     these_drapes = {}
     if game_type == "pick_up":
-        shape = "square"
         num_objects = PICK_UP_NUM_OBJECTS_PER
-        good_obj = good_color + "_" + shape 
-        bad_obj = bad_color + "_" + shape 
 
-        good_char = OBJECTS[good_obj]["char"] 
-        bad_char = OBJECTS[bad_obj]["char"] 
+        good_char = OBJECTS[good_object_color]["char"] 
+        bad_char = OBJECTS[bad_object_color]["char"] 
 
         these_drapes.update(
             {good_char: ascii_art.Partial(ValueDrape, value=1.),
              bad_char: ascii_art.Partial(ValueDrape, value=NEG_VALUE)})
-    elif game_type == "pusher":
-        shape = "tee"
-        num_objects = PUSHER_NUM_OBJECTS_PER
-        good_obj = good_color + "_" + shape 
-        bad_obj = bad_color + "_" + shape 
-
-        good_char = OBJECTS[good_obj]["char"] 
-        bad_char = OBJECTS[bad_obj]["char"] 
-
-        these_drapes.update(
-            {good_char: ascii_art.Partial(PushableDrape, 
-                                          value=1.),
-             bad_char: ascii_art.Partial(PushableDrape,
-                                         value=NEG_VALUE)})
-    elif game_type == "shooter":
-        shape = "diamond"
-        num_objects = SHOOTER_NUM_OBJECTS_PER
-        good_obj = good_color + "_" + shape 
-        bad_obj = bad_color + "_" + shape 
-
-        good_char = OBJECTS[good_obj]["char"] 
-        bad_char = OBJECTS[bad_obj]["char"] 
-
-        these_drapes.update(
-            {good_char: ascii_art.Partial(ShootableDrape, value=1.),
-             bad_char: ascii_art.Partial(ShootableDrape, value=NEG_VALUE)})
-    elif game_type == "sequence_imitation":
-        shape = "triangle"
-        num_objects = 1
-        good_obj = good_color + "_" + shape 
-        bad_obj = bad_color + "_" + shape 
-
-        good_char = OBJECTS[good_obj]["char"] 
-        bad_char = OBJECTS[bad_obj]["char"] 
-
-        these_sprites.update(
-            {good_char: ascii_art.Partial(DancerSprite, 
-                                          value=SEQ_IMIT_VALUE_PER),
-             bad_char: ascii_art.Partial(DancerSprite,
-                                         value=SEQ_IMIT_VALUE_PER * NEG_VALUE)})
+#    elif game_type == "pusher":
+#        shape = "tee"
+#        num_objects = PUSHER_NUM_OBJECTS_PER
+#        good_object_color = good_object_colorect_color + "_" + shape 
+#        bad_obj = bad_object_color + "_" + shape 
+#
+#        good_char = OBJECTS[good_object_color]["char"] 
+#        bad_char = OBJECTS[bad_obj]["char"] 
+#
+#        these_drapes.update(
+#            {good_char: ascii_art.Partial(PushableDrape, 
+#                                          value=1.),
+#             bad_char: ascii_art.Partial(PushableDrape,
+#                                         value=NEG_VALUE)})
+#    elif game_type == "shooter":
+#        shape = "diamond"
+#        num_objects = SHOOTER_NUM_OBJECTS_PER
+#        good_object_color = good_object_colorect_color + "_" + shape 
+#        bad_obj = bad_object_color + "_" + shape 
+#
+#        good_char = OBJECTS[good_object_color]["char"] 
+#        bad_char = OBJECTS[bad_obj]["char"] 
+#
+#        these_drapes.update(
+#            {good_char: ascii_art.Partial(ShootableDrape, value=1.),
+#             bad_char: ascii_art.Partial(ShootableDrape, value=NEG_VALUE)})
+#    elif game_type == "sequence_imitation":
+#        shape = "triangle"
+#        num_objects = 1
+#        good_object_color = good_object_colorect_color + "_" + shape 
+#        bad_obj = bad_object_color + "_" + shape 
+#
+#        good_char = OBJECTS[good_object_color]["char"] 
+#        bad_char = OBJECTS[bad_obj]["char"] 
+#
+#        these_sprites.update(
+#            {good_char: ascii_art.Partial(DancerSprite, 
+#                                          value=SEQ_IMIT_VALUE_PER),
+#             bad_char: ascii_art.Partial(DancerSprite,
+#                                         value=SEQ_IMIT_VALUE_PER * NEG_VALUE)})
     else:
-        raise ValueError("Unknown game type: {}".format(game_type))
+        raise ValueError("Unknown game type: {} --- possibly you should be on "
+                         "the master branch instead.".format(game_type))
 
     update_schedule = [AGENT_CHAR, good_char, bad_char]
     if game_type == "pusher":
@@ -466,25 +464,25 @@ class Renderer(object):
         
 
 class GameDef(object):
-    def __init__(self, game_type, good_color, bad_color, switched_colors,
+    def __init__(self, game_type, good_object_color, bad_object_color, switched_good_bad,
                  switched_left_right):
         self.game_type = game_type
-        self.good_color = good_color
-        self.bad_color = bad_color
-        self.switched_colors = switched_colors
+        self.good_object_color = good_object_color
+        self.bad_object_color = bad_object_color
+        self.switched_good_bad = switched_good_bad
         self.switched_left_right = switched_left_right
 
     def __str__(self):
         return "{}_{}_{}_{}_{}".format(self.game_type,
-                                       self.good_color,
-                                       self.bad_color,
-                                       self.switched_colors,
+                                       self.good_object_color,
+                                       self.bad_object_color,
+                                       self.switched_good_bad,
                                        self.switched_left_right)
 
     def __eq__(self, other):
         if not isinstance(other, GameDef):
             return False
-        return (self.game_type == other.game_type) and (self.good_color == other.good_color) and (self.bad_color == other.bad_color) and (self.switched_colors == other.switched_colors) and (self.switched_left_right == other.switched_left_right)
+        return (self.game_type == other.game_type) and (self.good_object_color == other.good_object_color) and (self.bad_object_color == other.bad_object_color) and (self.switched_good_bad == other.switched_good_bad) and (self.switched_left_right == other.switched_left_right)
 
 
 class Environment(object):
@@ -511,9 +509,9 @@ class Environment(object):
     def reset(self):
         game_def = self.game_def
         game = make_game(game_def.game_type,
-                         game_def.good_color,
-                         game_def.bad_color,
-                         game_def.switched_colors)
+                         game_def.good_object_color,
+                         game_def.bad_object_color,
+                         game_def.switched_good_bad)
         self._game = game
         self.renderer.cropper.set_engine(self._game)
         self.step_count = 0
@@ -547,6 +545,23 @@ class Environment(object):
 
 
 def main(argv=()):
+
+    for game_type in ["pick_up"]:
+        for (good_obj, bad_obj) in [("red_square", "blue_square"),
+                                    ("green_triangle", "green_tee")]:
+            for switched in [False, True]:
+                game = make_game(game_type, good_obj, bad_obj, switched)
+
+                ui = human_ui.CursesUi(
+                    keys_to_actions={curses.KEY_UP: 0, curses.KEY_RIGHT: 1,
+                                     curses.KEY_DOWN: 2, curses.KEY_LEFT: 3,
+                                     'w': 4, 'd': 5, 's': 6, 'a': 7,
+                                     'q': 8, 'Q': 8},
+                    delay=None, colour_fg={k: curse_color(v) for k, v in COLOURS.items()},
+                    colour_bg={AGENT_CHAR: (0, 0, 0)})
+
+                ui.play(game)
+    exit()
     np.random.seed(0)
     for game_type, colors in zip(["pusher", "pick_up"],
                                  [("red", "blue"), ("forest", "orange")]):
@@ -570,20 +585,6 @@ def main(argv=()):
             plot.imshow(obs, aspect='auto')
             plot.savefig("figures/%s_%i.png" % (game_type, i + 1))
 
-    exit()
-
-    for game_type in ["pusher", "shooter", "sequence_imitation", "pick_up"]:
-        game = make_game(game_type, "red", "blue")
-
-        ui = human_ui.CursesUi(
-            keys_to_actions={curses.KEY_UP: 0, curses.KEY_RIGHT: 1,
-                             curses.KEY_DOWN: 2, curses.KEY_LEFT: 3,
-                             'w': 4, 'd': 5, 's': 6, 'a': 7,
-                             'q': 8, 'Q': 8},
-            delay=None, colour_fg={k: curse_color(v) for k, v in COLOURS.items()},
-            colour_bg={AGENT_CHAR: (0, 0, 0)})
-
-        ui.play(game)
 
 
 if __name__ == '__main__':
