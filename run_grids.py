@@ -13,22 +13,41 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/mnt/fs4/lampinen/grids_final/lessplit_wn_one_holdout/",
+    "output_dir": "/mnt/fs4/lampinen/grids_color_and_shape/",
 
     "run_offset": 0,
-    "num_runs": 1,
+    "num_runs": 5,
 
-    "game_types": ["pick_up", "pusher"],#, "shooter"], -- if reenabled, change num of actions
-    "color_pairs": [("red", "blue"), ("green", "purple"), ("yellow", "cyan"), ("pink", "ocean"), ("forest", "orange")], # good, bad
+    "game_types": ["pick_up"],#, "shooter"], -- if reenabled, change num of actions
+    "object_pairs": [
+        ("red_square", "blue_square"),
+        ("green_square", "purple_square"),
+        ("yellow_square", "cyan_square"),
+        ("pink_square", "ocean_square"),
+        ("forest_square", "orange_square"),
+        ("red_diamond", "blue_diamond"),
+        ("green_diamond", "purple_diamond"),
+        ("yellow_diamond", "cyan_diamond"),
+        ("pink_diamond", "ocean_diamond"),
+        ("forest_diamond", "orange_diamond"),
+        ("red_triangle", "red_tee"),
+        ("blue_triangle", "blue_tee"),
+        ("green_triangle", "green_tee"),
+        ("yellow_triangle", "yellow_tee"),
+        ("purple_triangle", "purple_tee"),
+        ], # good, bad
 
-    "hold_outs": [#"pusher_forest_orange_True_False",
-                  #"pick_up_forest_orange_True_False",
-                  "pusher_red_blue_True_False",
-                  "pick_up_red_blue_True_False"], 
+    "hold_outs": [
+        "pick_up_red_triangle_red_tee_True_False",
+        "pick_up_blue_triangle_blue_tee_True_False",
+        "pick_up_green_triangle_green_tee_True_False",
+        "pick_up_yellow_triangle_yellow_tee_True_False",
+        "pick_up_purple_triangle_purple_tee_True_False",
+    ], 
 
     "max_steps": 150,
 
-    "meta_mappings": ["switch_colors"],
+    "meta_mappings": ["switch_good_bad"],
 
     "softmax_beta": 8,
     "softmax_policy": True,
@@ -96,7 +115,7 @@ if False:  # enable for language baseline
         "train_base": False,
         "train_meta": False,
 
-        "vocab": ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
+        "vocab": ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()) + grid_tasks.BASE_SHAPES,
         "persistent_task_reps": False,
 
         "init_language_learning_rate": 3e-5,
@@ -105,7 +124,7 @@ if False:  # enable for language baseline
     })
 
     architecture_config.update({
-        "max_sentence_len": 5,
+        "max_sentence_len": 7,
     })
 
 if False:  # enable for language base + meta 
@@ -117,7 +136,7 @@ if False:  # enable for language base + meta
         "train_base": False,
         "train_meta": False,
 
-        "vocab": ["PAD"] + ["switch", "colors"] + ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
+        "vocab": ["PAD"] + ["switch", "colors"] + ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()) + grid_tasks.BASE_SHAPES,
         "persistent_task_reps": False,
 
         "init_language_learning_rate": 3e-5,
@@ -127,7 +146,7 @@ if False:  # enable for language base + meta
     })
 
     architecture_config.update({
-        "max_sentence_len": 5,
+        "max_sentence_len": 7,
     })
 
 
@@ -253,14 +272,14 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
 
         environment_defs = []
         for game_type in run_config["game_types"]:
-            for good_color, bad_color in run_config["color_pairs"]:
-                for switched_colors in [False, True]:
+            for good_object_color, bad_object_color in run_config["object_pairs"]:
+                for switched_good_bad in [False, True]:
                     for switched_left_right in [False]:#, True]:
                         environment_defs.append(grid_tasks.GameDef(
                             game_type=game_type,
-                            good_color=good_color,
-                            bad_color=bad_color,
-                            switched_colors=switched_colors,
+                            good_object_color=good_object_color,
+                            bad_object_color=bad_object_color,
+                            switched_good_bad=switched_good_bad,
                             switched_left_right=switched_left_right))
 
         environments = [grid_tasks.Environment(e, 
