@@ -631,7 +631,7 @@ lmer(normalized_rewards ~ run_type + target + (1|run),
 
 
 ```{r}
-ggplot(data=comparison_d %>%
+g = ggplot(data=comparison_d %>%
          filter(run_type %in% c("HoMM", "Language")) %>%
          mutate(run_type=factor(run_type, 
                                 levels=c("HoMM", "Language"),
@@ -657,11 +657,18 @@ ggplot(data=comparison_d %>%
   annotate("text", x=0.86, y=1.1, alpha=0.5, label="Optimal adaptation") +
   annotate("text", x=0.75, y=-1.1, alpha=0.5, label="No adaptation") +
   scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), labels = c("-100%", "-50%", "0%", "50%", "100%")) +
-  scale_x_discrete(breaks=c("pickup", "pusher"), labels=c("Pick-up", "Push-off")) +
+  scale_x_discrete(breaks=c("pickup", "pusher"), labels=c("Pick-up", "Push-off"))
+
+g +
+  guides(color=guide_legend(title=NULL)) #+
+  #theme(legend.position=c(0.85, 0.75)) 
+ggsave("../../../psych/dissertation/4-extending/figures/grids_adaptation_results.png", width=6, height=4)
+
+g +
   guides(color=F)#guide_legend(title=NULL)) +
 #  theme(legend.position=c(0.85, 0.5)) 
 ggsave("../../metamapping_paper/figures/grids_adaptation.png", width=4, height=3)
-ggsave("../../../psych/dissertation/4-extending/figures/grids_adaptation_results.png", width=6, height=4)
+
 ```
 
 ```{r}
