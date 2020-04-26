@@ -13,37 +13,46 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/mnt/fs4/lampinen/grids_color_and_shape/",
+    "output_dir": "/mnt/fs4/lampinen/grids_color_and_shape_with_pusher_distinguishable_shape_test/qm/",
 
     "run_offset": 0,
-    "num_runs": 5,
+    "num_runs": 1,
 
-    "game_types": ["pick_up"],#, "shooter"], -- if reenabled, change num of actions
+    "game_types": ["pick_up", "pusher"],#, "shooter"], -- if reenabled, change num of actions
     "object_pairs": [
         ("red_square", "blue_square"),
         ("green_square", "purple_square"),
         ("yellow_square", "cyan_square"),
         ("pink_square", "ocean_square"),
-        ("forest_square", "orange_square"),
+        #("forest_square", "orange_square"),
         ("red_diamond", "blue_diamond"),
         ("green_diamond", "purple_diamond"),
         ("yellow_diamond", "cyan_diamond"),
         ("pink_diamond", "ocean_diamond"),
-        ("forest_diamond", "orange_diamond"),
-        ("red_triangle", "red_tee"),
-        ("blue_triangle", "blue_tee"),
-        ("green_triangle", "green_tee"),
-        ("yellow_triangle", "yellow_tee"),
-        ("purple_triangle", "purple_tee"),
+        #("forest_diamond", "orange_diamond"),
+        ("red_tee", "red_triangle"),
+        ("blue_tee", "blue_triangle"),
+        ("yellow_tee", "yellow_triangle"),
+        ("cyan_tee", "cyan_triangle"),
+        ("green_tee", "green_triangle"),
+        ("purple_tee", "purple_triangle"),
+        ("pink_tee", "pink_triangle"),
+        ("ocean_tee", "ocean_triangle"),
         ], # good, bad
 
     "hold_outs": [
-        "pick_up_red_triangle_red_tee_True_False",
-        "pick_up_blue_triangle_blue_tee_True_False",
-        "pick_up_green_triangle_green_tee_True_False",
-        "pick_up_yellow_triangle_yellow_tee_True_False",
-        "pick_up_purple_triangle_purple_tee_True_False",
+        "pick_up_red_tee_red_triangle_True_False",
+        "pick_up_blue_tee_blue_triangle_True_False",
+        "pick_up_yellow_tee_yellow_triangle_True_False",
+        "pick_up_cyan_tee_cyan_triangle_True_False",
+        "pusher_green_tee_green_triangle_True_False",
+        "pusher_purple_tee_purple_triangle_True_False",
+        "pusher_pink_tee_pink_triangle_True_False",
+        "pusher_ocean_tee_ocean_triangle_True_False",
     ], 
+
+    "pick_up_good_colors": ["red", "blue",      # these will only be used for
+                            "yellow", "cyan"],  # pick_up, others only for pusher.
 
     "max_steps": 150,
 
@@ -53,7 +62,7 @@ run_config.update({
     "softmax_policy": True,
 
     "init_learning_rate": 1e-4,
-    "init_meta_learning_rate": 1e-4,
+    "init_meta_learning_rate": 3e-4,
 
     "lr_decay": 0.8,
     "meta_lr_decay": 0.95,
@@ -107,6 +116,15 @@ architecture_config.update({
     "emb_match_loss_weight": 0.2,
 })
 
+if False:  # enable for tcnh
+    run_config.update({
+        "output_dir": run_config["output_dir"] + "tcnh/",
+    })
+
+    architecture_config.update({
+        "task_conditioned_not_hyper": True, 
+    })
+
 if False:  # enable for language baseline
     run_config.update({
         "output_dir": run_config["output_dir"] + "language/",
@@ -126,6 +144,7 @@ if False:  # enable for language baseline
     architecture_config.update({
         "max_sentence_len": 7,
     })
+    
 
 if False:  # enable for language base + meta 
     run_config.update({
@@ -271,8 +290,15 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         # set up the base task defs
 
         environment_defs = []
+        pick_up_good_colors = run_config["pick_up_good_colors"]
         for game_type in run_config["game_types"]:
             for good_object_color, bad_object_color in run_config["object_pairs"]:
+                # force colors to match games
+                gc = good_object_color.split("_")[0]
+                if (gc in pick_up_good_colors and game_type != "pick_up") or (gc not in pick_up_good_colors and game_type == "pick_up"):
+                    print("skipping: {}, {}, {}".format(
+                        game_type, good_object_color, bad_object_color))
+                    continue
                 for switched_good_bad in [False, True]:
                     for switched_left_right in [False]:#, True]:
                         environment_defs.append(grid_tasks.GameDef(
@@ -287,7 +313,11 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
                                                max_steps=run_config["max_steps"]) for e in environment_defs]
 
         train_environments = [e for e in environments if str(e) not in run_config["hold_outs"]]
+        print("Train:")
+        print([str(e) for e in train_environments])
         eval_environments = [e for e in environments if str(e) in run_config["hold_outs"]]
+        print("eval:")
+        print([str(e) for e in eval_environments])
         
         train_environment_defs = [e for e in environment_defs if str(e) not in run_config["hold_outs"]]
         eval_environment_defs = [e for e in environment_defs if str(e) in run_config["hold_outs"]]

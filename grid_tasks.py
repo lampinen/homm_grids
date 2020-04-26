@@ -83,20 +83,16 @@ def make_game(game_type, good_object_color, bad_object_color, switched_good_bad=
         these_drapes.update(
             {good_char: ascii_art.Partial(ValueDrape, value=1.),
              bad_char: ascii_art.Partial(ValueDrape, value=NEG_VALUE)})
-#    elif game_type == "pusher":
-#        shape = "tee"
-#        num_objects = PUSHER_NUM_OBJECTS_PER
-#        good_object_color = good_object_colorect_color + "_" + shape 
-#        bad_obj = bad_object_color + "_" + shape 
-#
-#        good_char = OBJECTS[good_object_color]["char"] 
-#        bad_char = OBJECTS[bad_obj]["char"] 
-#
-#        these_drapes.update(
-#            {good_char: ascii_art.Partial(PushableDrape, 
-#                                          value=1.),
-#             bad_char: ascii_art.Partial(PushableDrape,
-#                                         value=NEG_VALUE)})
+    elif game_type == "pusher":
+        num_objects = PUSHER_NUM_OBJECTS_PER
+        good_char = OBJECTS[good_object_color]["char"] 
+        bad_char = OBJECTS[bad_object_color]["char"] 
+
+        these_drapes.update(
+            {good_char: ascii_art.Partial(PushableDrape, 
+                                          value=1.),
+             bad_char: ascii_art.Partial(PushableDrape,
+                                         value=NEG_VALUE)})
 #    elif game_type == "shooter":
 #        shape = "diamond"
 #        num_objects = SHOOTER_NUM_OBJECTS_PER
