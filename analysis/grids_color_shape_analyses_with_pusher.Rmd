@@ -1,0 +1,552 @@
+---
+title: "Grids color-shape analyses"
+author: "Andrew Lampinen"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+#library(stargazer)
+```
+
+```{r}
+# 
+# results_dir = "../results/grids_color_and_shape/"
+# language_results_subdirs = c("language")
+# library_results_subdirs = c(".")
+#hold_out_regex = "tee_True"  # NOTE: we assume hold outs are the same across runs
+
+language_homm_results_subdirs = c()
+
+results_dir = "../results/grids_color_and_shape_with_pusher_distinguishable_shape_test/"
+language_results_subdirs = c("language")
+library_results_subdirs = c(".", "qm")
+hold_out_regex = "triangle_True"  # NOTE: we assume hold outs are the same across runs
+
+
+num_runs = 5
+```
+
+# utils and setup
+```{r}
+read_config = function(config_file) { 
+  config = read_delim(config_file, delim="\n") %>%
+    separate(`key, value`, c("key", "value"), sep=",", extra="merge") %>%
+    spread(key, value) %>%
+    mutate_at(c("games", "hold_outs", "meta_tasks"), function(x) {
+      x = gsub("\\\"|[][]| |\'", "", x)
+      return(str_split(x, ","))
+    } )
+}
+```
+
+```{r}
+load_d = function(results_dir, result_subdirs, num_runs, with_library, file_type) {
+  d = data.frame()
+  if (num_runs == F) {
+    num_runs = 1
+    single_runs = TRUE
+  } else{
+    single_runs = F
+  }
+  for (run_i in 0:(num_runs-1)) {
+    for (result_subdir in result_subdirs) {
+      if (single_runs) {
+        filename = sprintf("%s%s/%s.csv", results_dir, result_subdir, file_type)
+      } else {
+        if (with_library) {
+          filename = sprintf("%s%s/run%i_%s.csv", results_dir, result_subdir, run_i, file_type)
+        } else {
+          filename = sprintf("%s%s/run_%i_%s.csv", results_dir, result_subdir, run_i, file_type)
+        }
+      }
+      print(filename)
+      if (!file.exists(filename)) {
+        print(paste("skipping ", filename, sep=""))
+        next
+      }
+      if (file_type == "config") {
+        this_d = read_config(filename)
+      } else {
+        this_d = read.csv(filename, check.names=F, header=T) 
+      }
+      this_d = this_d %>%
+#        mutate(run = 0,
+        mutate(run = run_i,
+               run_type = result_subdir)
+      d = d %>%
+        bind_rows(this_d)
+    }
+    
+  }
+  return(d)
+}
+```
+
+
+# config loading
+
+```{r}
+# config_d = load_d(results_dir, result_subdirs, F, F, "config")
+# config_d = bind_rows(config_d,
+#                      load_d(results_dir, newer_results_subdirs, num_runs, F, "config"))
+```
+
+```{r}
+# config_d = config_d %>% 
+#   rowwise() %>% 
+#   mutate(hold_outs = list(sub("sequence_imitation", "sequenceimitation", sub("pick_up", "pickup",hold_outs)))) %>%
+#   ungroup() 
+```
+
+# base data loading
+
+```{r}
+# base_d = load_d(results_dir, result_subdirs, F, F, "base_losses")
+# base_d = bind_rows(base_d,
+#                    load_d(results_dir, newer_results_subdirs, num_runs, F, "base_losses"))
+```
+
+```{r}
+lang_d = load_d(results_dir, language_results_subdirs, num_runs, T, "language_losses")
+```
+
+```{r}
+library_base_d = load_d(results_dir, library_results_subdirs, num_runs, T, "losses")
+```
+
+```{r}
+# base_d = base_d %>%
+#   gather(environment_and_metric, value, -epoch, -run_type, -run) %>%
+#   mutate(environment_and_metric=sub("pick_up", "pickup", environment_and_metric),
+#          environment_and_metric=sub("sequence_imitation", "sequenceimitation", environment_and_metric)) %>%
+#   separate(environment_and_metric,
+#            c("game_type", "good_color_object", "bad_color_object", "switch_good_and_bad", "switch_left_right", "metric"),
+#            sep="_",
+#            extra="merge") %>%
+#   spread(metric, value) %>%
+#   mutate(environment_name = paste(game_type, good_color_object, bad_color_object, switch_good_and_bad, switch_left_right, sep="_"))
+```
+
+```{r}
+fix_names = function(names) {
+  return(gsub("_(square|diamond|triangle|tee)", "&\\1", names))
+}
+```
+
+```{r}
+lang_d = lang_d %>%
+  gather(environment_and_metric, value, -epoch, -run_type, -run) %>%
+  mutate(environment_and_metric=sub("pick_up", "pickup", environment_and_metric),
+         environment_and_metric=sub("sequence_imitation", "sequenceimitation", environment_and_metric),
+         environment_and_metric=fix_names(environment_and_metric)) %>%
+  separate(environment_and_metric,
+           c("game_type", "good_color_object", "bad_color_object", "switch_good_and_bad", "switch_left_right", "metric"),
+           sep="_",
+           extra="merge") %>%
+  spread(metric, value) %>%
+  mutate(environment_name = paste(game_type, good_color_object, bad_color_object, switch_good_and_bad, switch_left_right, sep="_"))
+```
+
+```{r}
+library_meta_loss_d = library_base_d %>%
+  rename(switch_good_and_bad_mapping_loss=`switch_good_bad:train`) %>%
+  select(run, run_type, epoch, switch_good_and_bad_mapping_loss)
+  
+
+library_base_d = library_base_d %>%
+  select(-starts_with("switch_good_bad")) %>%
+  gather(environment_and_metric, value, -epoch, -run_type, -run) %>%
+  mutate(environment_and_metric=sub("pick_up", "pickup", environment_and_metric),
+         environment_and_metric=sub("sequence_imitation", "sequenceimitation", environment_and_metric),
+         environment_and_metric=fix_names(environment_and_metric)) %>%
+  separate(environment_and_metric, 
+           c("game_type", "good_color_object", "bad_color_object", "switch_good_and_bad", "switch_left_right", "metric"),
+           sep="_",
+           extra="merge") %>%
+  spread(metric, value) %>%
+  mutate(environment_name = paste(game_type, good_color_object, bad_color_object, switch_good_and_bad, switch_left_right, sep="_"))
+```
+
+```{r}
+# check_if_eval = function(environment_name, this_run_type) {
+#   these_hold_outs = config_d %>% 
+#     filter(run_type == this_run_type) %>% 
+#     pull(hold_outs) %>%
+#     unlist()
+#   return(environment_name %in% these_hold_outs)
+# }
+
+check_if_eval = function(environment_name){
+  grepl(hold_out_regex, environment_name) 
+}
+```
+
+```{r}
+# base_d = base_d %>% 
+#   mutate(eval = grepl(hold_out_regex, environment_name))
+```
+
+```{r}
+lang_d = lang_d %>% 
+  mutate(eval = grepl(hold_out_regex, environment_name))
+```
+
+```{r}
+library_base_d = library_base_d %>% 
+  mutate(eval = grepl(hold_out_regex, environment_name))
+```
+
+# basic plot
+```{r}
+theme_set(theme_classic())
+```
+
+```{r}
+# ggplot(base_d,
+#        aes(x=epoch, y=returns_mean, color=game_type, linetype=eval)) +
+#   geom_line(stat="summary",
+#             fun.y="mean") +
+#   geom_hline(yintercept=0,
+#              linetype=2) +
+#   facet_wrap(~ run_type, scales = "free")
+```
+
+```{r}
+# ggplot(base_d,
+#        aes(x=epoch, y=returns_mean, color=game_type, linetype=eval)) +
+#   geom_line(stat="summary",
+#             fun.y="mean") +
+#   geom_hline(yintercept=0,
+#              linetype=2)+
+#   geom_hline(yintercept=4,
+#              linetype=3) +
+#   labs(y="Meta-learning average return") +
+#   facet_grid(run_type~run)
+# #ggsave("plots/basic_meta_learning.png")
+```
+
+```{r}
+ggplot(library_base_d,
+       aes(x=epoch, y=mean_rewards, color=game_type, linetype=eval)) +
+  geom_line(stat="summary",
+            fun.y="mean") +
+  geom_hline(yintercept=0,
+             linetype=2)+ 
+  geom_hline(yintercept=4,
+             linetype=3) +
+  labs(y="Meta-learning average return") +
+  facet_grid(run~run_type)
+#ggsave("plots/basic_meta_learning.png")
+```
+
+```{r}
+# ggplot(base_d %>% 
+#          filter(game_type == "shooter"),
+#        aes(x=epoch, y=returns_mean, linetype=eval)) +
+#   geom_line(stat="summary",
+#             fun.y="mean") +
+#   facet_wrap(~ run_type, scales = "free")
+```
+
+```{r}
+# ggplot(base_d,
+#        aes(x=epoch, y=steps_mean, color=game_type, linetype=eval)) +
+#   geom_line(stat="summary",
+#             fun.y="mean") +
+#   facet_wrap(~ run_type, scales = "free")
+```
+
+# meta data loading
+
+```{r}
+# meta_d = load_d(results_dir, result_subdirs, F, F, "meta_true_losses")
+# meta_d = bind_rows(meta_d,
+#                    load_d(results_dir, newer_results_subdirs, num_runs, F, "meta_true_losses"))
+```
+
+```{r}
+library_meta_d = load_d(results_dir, library_results_subdirs, num_runs, T, "meta_true_losses")
+```
+
+```{r}
+#lang_meta_d = load_d(results_dir, language_homm_results_subdirs, num_runs, T, "language_meta_true_losses")
+```
+
+```{r}
+# meta_d = meta_d %>%
+#   gather(meta_data_point, value, -epoch, -run_type, -run) %>%
+#   separate(meta_data_point,
+#            c("meta_task", "source", "target_and_metric"),
+#            sep=":|->",
+#            extra="merge") %>%
+#   mutate(metric = str_extract(target_and_metric, "(steps|returns)_(mean|se)$"),
+#          target = sub("(steps|returns)_(mean|se)$", "", target_and_metric)) %>%
+#   spread(metric, value) %>%
+#   mutate(eval = grepl("\\[eval\\]", meta_task),
+#          meta_task = sub("\\[eval\\]", "", meta_task),
+#          source_is_eval = check_if_eval(source)) %>%
+#   mutate(source=sub("pick_up", "pickup", source),
+#          source=sub("sequence_imitation", "sequenceimitation", source)) %>%
+#   separate(source,
+#            c("source_game_type", "source_good_color_object", "source_bad_color_object", "source_switch_good_and_bad", "source_switch_left_right"),
+#            sep="_",
+#            extra="merge")
+```
+
+```{r}
+library_meta_d = library_meta_d %>%
+  left_join(library_meta_loss_d) %>%
+  gather(meta_data_point, value, -epoch, -run_type, -run, -switch_good_and_bad_mapping_loss) %>%
+  separate(meta_data_point, 
+           c("meta_task", "meta_mapping_toe", "base_task_toe", "source", "target"),
+           sep=":|->",
+           extra="merge") %>%
+  mutate(eval = grepl("\\[eval\\]", meta_task),
+         meta_task = sub("\\[eval\\]", "", meta_task),
+         source_is_eval = check_if_eval(source)) %>%
+  mutate(source=sub("pick_up", "pickup", source),
+         source=sub("sequence_imitation", "sequenceimitation", source),
+         source=fix_names(source)) %>%
+  separate(source, 
+           c("source_game_type", "source_good_color_object", "source_bad_color_object", "source_switch_good_and_bad", "source_switch_left_right"),
+           sep="_",
+           extra="merge")
+```
+
+```{r}
+# lang_meta_d = lang_meta_d %>%
+#   gather(meta_data_point, value, -epoch, -run_type, -run) %>%
+#   separate(meta_data_point, 
+#            c("meta_task", "meta_mapping_toe", "base_task_toe", "source", "target"),
+#            sep=":|->",
+#            extra="merge") %>%
+#   mutate(eval = grepl("\\[eval\\]", meta_task),
+#          meta_task = sub("\\[eval\\]", "", meta_task)) %>%
+#   mutate(source=sub("pick_up", "pickup", source),
+#          source=sub("sequence_imitation", "sequenceimitation", source)) %>%
+#   separate(source, 
+#            c("source_game_type", "source_good_color_object", "source_bad_color_object", "source_switch_good_and_bad", "source_switch_left_right"),
+#            sep="_",
+#            extra="merge")
+```
+
+# basic plot
+
+```{r}
+ggplot(library_meta_d %>%
+         filter(meta_task == "switch_good_bad"),
+       aes(x=epoch, y=value, color=source_game_type, linetype=base_task_toe)) +
+  geom_line(stat="summary",
+            fun.y="mean") +
+  geom_hline(yintercept=0,
+             linetype=2) +
+  facet_grid(run ~ run_type, scales="free")
+```
+
+# language baselines
+
+```{r}
+ggplot(lang_d,
+       aes(x=epoch, y=mean_rewards, color=game_type, linetype=eval)) +
+  geom_line(stat="summary",
+            fun.y="mean") +
+  geom_hline(yintercept=0,
+             linetype=2) +
+  geom_hline(yintercept=4,
+             linetype=3) +
+  facet_grid(run ~ run_type, scales = "free")
+``` 
+# comparison
+
+```{r}
+criterion=3.5
+lang_criterion=3.5
+comparison_d = bind_rows(
+  lang_d %>%
+    filter(#epoch > 50000,
+           epoch < 300000,
+           run_type == "language") %>%
+    group_by(run, epoch, game_type, good_color_object, eval) %>%
+    summarize(mean_reward = mean(mean_rewards)) %>%
+    ungroup() %>%
+    unite("game_and_toe", game_type, good_color_object, eval, sep=":") %>%
+    spread(game_and_toe, mean_reward) %>%
+    filter_at(vars(contains("FALSE")), all_vars(. > lang_criterion)) %>%
+    select(-contains("FALSE")) %>%
+    mutate(run_type = "Language")  %>%
+    rename_at(vars(contains("TRUE")), function(x) {gsub(":TRUE", "", x)}),
+  library_meta_d %>%
+    filter(meta_task == "switch_good_bad",
+           #epoch > 50000,
+           epoch < 300000,
+           run_type == "qm") %>%
+    group_by(run_type, source_game_type, source_good_color_object, base_task_toe, run, epoch) %>%
+    summarize(mean_reward = mean(value), switch_good_and_bad_mapping_loss=head(switch_good_and_bad_mapping_loss, 1)) %>%
+    ungroup() %>%
+    unite("game_and_toe", source_game_type, source_good_color_object, base_task_toe, sep=":") %>%
+    spread(game_and_toe, mean_reward) %>%
+    filter_at(vars(contains("example_is_train")), all_vars(. > criterion)) %>%
+    select(-contains("example_is_train"), -switch_good_and_bad_mapping_loss) %>%
+    mutate(run_type = "HoMM") %>%
+    rename_at(vars(contains("example_is_eval")), function(x) {gsub(":example_is_eval", "", x)}),
+) %>%
+  gather(game_type_and_obj, mean_rewards, -run, -run_type, -epoch) %>%
+  separate(game_type_and_obj, c("game_type", "source_good_obj"), sep=":") %>%
+  group_by(run, run_type, game_type, epoch) %>%
+  mutate(rewards_across_tasks = sum(mean_rewards)) %>%
+  ungroup() %>%
+  mutate(other_task_rewards = rewards_across_tasks - mean_rewards,  # for selection, use other tasks as validation set
+         factor_run_type = factor(run_type))
+```
+
+Select point to evaluate each task by using the other as a validation task:
+
+```{r}
+comparison_d = comparison_d %>%
+    group_by(run_type, factor_run_type, run, game_type, source_good_obj) %>%
+    filter(other_task_rewards == max(other_task_rewards)) %>%
+    ungroup()
+```
+
+```{r}
+comparison_d = comparison_d %>%
+  mutate(normalized_rewards = mean_rewards / 4.)
+```
+
+## some quick tests
+
+```{r}
+perm_mean_diff_test = function(x, y, alpha=0.05) {
+  obs_t = t.test(x, y)$statistic
+  combined_data = c(x, y)
+  n_combined = length(combined_data)
+  n_x = length(x)
+  perm_iterate = function(x, y) {
+    perm = sample(n_combined)
+    x_samp = combined_data[perm[1:n_x]]
+    y_samp = combined_data[perm[-(1:n_x)]]
+    this_t = t.test(x_samp, y_samp)$statistic
+    return(this_t)
+  }
+  perms = replicate(500, perm_iterate(x, y))
+  quants = quantile(perms, probs=c(alpha/2, 1-alpha/2))
+  return(obs_t < quants[1] | obs_t > quants[2])
+}
+```
+
+```{r}
+set.seed(0)  # reproducibility
+perm_mean_diff_test(
+  comparison_d %>%
+    filter(run_type == "HoMM") %>%
+    pull(normalized_rewards),
+  comparison_d %>%
+    filter(run_type == "Language") %>%
+    pull(normalized_rewards)
+)
+```
+
+```{r}
+lmer(normalized_rewards ~ factor_run_type + (1|run),
+     comparison_d) %>%
+  summary()
+```
+
+
+```{r}
+lmer(normalized_rewards ~ factor_run_type * game_type + (1 |run),
+     comparison_d) %>%
+  summary()
+```
+
+```{r}
+lmer(normalized_rewards ~ (1|run),
+     comparison_d %>%
+       filter(run_type == "Language")) %>%
+  summary()
+```
+
+```{r}
+lmer(normalized_rewards ~ game_type + (1|run),
+     comparison_d %>%
+       filter(run_type == "Language")) %>%
+  summary()
+```
+
+```{r}
+old_contrasts = contrasts(comparison_d$factor_run_type)
+contrasts(comparison_d$factor_run_type) = cbind(HoMM=c(1, 0))
+lmer(normalized_rewards ~ factor_run_type + (1|run),
+     comparison_d) %>%
+  summary()
+contrasts(comparison_d$factor_run_type) = old_contrasts
+```
+
+## and a plot
+
+
+```{r}
+g = ggplot(data=comparison_d %>%
+         filter(run_type %in% c("HoMM", "Language")) %>%
+         mutate(run_type=factor(run_type, 
+                                levels=c("HoMM", "Language"),
+                                labels=c("HoMM", "Language\ngeneralization"))),
+       aes(x=game_type, 
+           color=run_type,
+           y=normalized_rewards)) +
+  geom_hline(yintercept=1, linetype=2, alpha=0.5) +
+  geom_hline(yintercept=0., linetype=3, alpha=0.5) +
+  geom_hline(yintercept=-1, linetype=2, alpha=0.5) +
+  geom_errorbar(stat="summary",
+                fun.data="mean_cl_boot",
+                width=0.5,
+                size=1,
+                position=position_dodge(0.5)) +
+  geom_point(stat="summary",
+             fun.y="mean",
+             size=4,
+             position=position_dodge(0.5)) +
+  scale_color_manual(values=c("#e41a1c", "#477ec8")) +
+  labs(x="Task type", y="Normalized returns (evaluation)") +
+  scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), labels = c("-100%", "-50%", "0%", "50%", "100%")) +
+  scale_x_discrete(breaks=c("pickup", "pusher"), labels=c("Pick-up", "Push-off")) +
+  guides(color=guide_legend(title=NULL)) +
+  theme(legend.position=c(0.85, 0.25)) 
+
+g + 
+  annotate("text", x=0.6, y=0.1, alpha=0.5, label="Chance") +
+  annotate("text", x=0.86, y=1.1, alpha=0.5, label="Optimal adaptation") +
+  annotate("text", x=0.75, y=-1.1, alpha=0.5, label="No adaptation") 
+ggsave("../../metamapping_paper/figures/grids_color_to_shape_generalization.png", width=4, height=3)
+g + 
+  annotate("text", x=0.53, y=0.1, alpha=0.5, label="Chance") +
+  annotate("text", x=0.69, y=1.1, alpha=0.5, label="Optimal adaptation") +
+  annotate("text", x=0.63, y=-1.1, alpha=0.5, label="No adaptation") 
+ggsave("../../../psych/dissertation/4-extending/figures/grids_color_to_shape_generalization.png", width=6, height=4)
+```
+
+```{r}
+set.seed(0) # reproducibility
+comparison_d %>%
+  group_by(run_type) %>%
+  do(results1=mean_cl_boot(.$normalized_rewards)) %>%
+  mutate(performance=results1$y,
+         performance95min=results1$ymin,
+         performance95max=results1$ymax,
+            )
+```
+
+```{r}
+set.seed(0) # reproducibility
+comparison_d %>%
+  group_by(run_type, game_type) %>%
+  do(results1=mean_cl_boot(.$normalized_rewards)) %>%
+  mutate(performance=results1$y,
+         performance95min=results1$ymin,
+         performance95max=results1$ymax,
+            )
+```
+
