@@ -110,7 +110,7 @@ if False:  # enable for language baseline
 
 if False:  # enable for language base + meta 
     run_config.update({
-        "output_dir": run_config["output_dir"] + "language_HoMM/",
+        "output_dir": run_config["output_dir"] + "language_HoMM_fixed/",
 
         "train_language_base": True,
         "train_language_meta": True,
@@ -121,7 +121,10 @@ if False:  # enable for language base + meta
         "persistent_task_reps": False,
 
         "init_language_learning_rate": 3e-5,
-        "init_language_meta_learning_rate": 3e-5,
+        "init_language_meta_learning_rate": 1e-4,
+        "min_language_meta_learning_rate": 1e-7,
+        "language_meta_lr_decay": 0.95,
+
         #"eval_every": 500,  # things change faster with language
         #"update_target_network_every": 5000,
     })
@@ -564,6 +567,19 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
         current_epsilon = self.epsilon
         self.epsilon = 0.
         names, losses = super(grids_HoMM_agent, self).run_meta_true_eval()
+        if self.best_eval_indices is None: 
+            self.best_eval_indices = np.core.defchararray.find(names, "eval") != -1
+        meta_eval_mean = np.mean(np.array(losses)[self.best_eval_indices])
+        if self.best_eval_val < meta_eval_mean:
+            self.best_eval_val = meta_eval_mean
+            self.save_parameters(self.run_config["output_dir"] + "run%i_best_eval_checkpoint" % self.run_config["this_run"])
+        self.epsilon = current_epsilon
+        return names, losses
+
+    def run_meta_true_language_eval(self):
+        current_epsilon = self.epsilon
+        self.epsilon = 0.
+        names, losses = super(grids_HoMM_agent, self).run_meta_true_language_eval()
         if self.best_eval_indices is None: 
             self.best_eval_indices = np.core.defchararray.find(names, "eval") != -1
         meta_eval_mean = np.mean(np.array(losses)[self.best_eval_indices])
