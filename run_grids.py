@@ -110,7 +110,7 @@ if False:  # enable for language baseline
 
 if False:  # enable for language base + meta 
     run_config.update({
-        "output_dir": run_config["output_dir"] + "language_HoMM_fixed/",
+        "output_dir": run_config["output_dir"] + "language_HoMM_refixed/",
 
         "train_language_base": True,
         "train_language_meta": True,
@@ -118,10 +118,9 @@ if False:  # enable for language base + meta
         "train_meta": False,
 
         "vocab": ["PAD"] + ["switch", "colors"] + ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()),
-        "persistent_task_reps": False,
 
         "init_language_learning_rate": 3e-5,
-        "init_language_meta_learning_rate": 1e-4,
+        "init_language_meta_learning_rate": 3e-6,
         "min_language_meta_learning_rate": 1e-7,
         "language_meta_lr_decay": 0.95,
 
@@ -131,6 +130,7 @@ if False:  # enable for language base + meta
 
     architecture_config.update({
         "max_sentence_len": 5,
+        "persistent_task_reps": False,
     })
 
 
@@ -595,7 +595,7 @@ class grids_HoMM_agent(HoMM_model.HoMM_model):
             words = ["pickup"] + words[2:]
 
         if len(words) < self.max_sentence_len:
-            words = ["PAD"] * (self.max_sentence_len - len(words)) + words
+            words = words + ["PAD"] * (self.max_sentence_len - len(words))
 
         return [self.vocab_dict[x] for x in words]
         
