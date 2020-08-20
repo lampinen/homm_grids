@@ -12,10 +12,15 @@ library(lmerTest)
 ```
 
 ```{r}
+theme_set(theme_classic())
+```
+
+```{r}
 
 results_dir = "../results/grids_final/"
 
-language_homm_results_subdirs = c("lessplit_wn_one_holdout/language_HoMM")
+language_homm_results_subdirs = c("../language_HoMM_results/language_HoMM_refixed")
+#language_homm_results_subdirs = c("lessplit_wn_one_holdout/language_HoMM")
 
 language_results_subdirs = c("lessplit_wn_one_holdout/language")
 library_results_subdirs = c("lessplit_one_holdout", "lessplit_wn_one_holdout", "lessplit_wn_one_holdout_tcnh")
@@ -188,9 +193,6 @@ library_base_d = library_base_d %>%
 ```
 
 # basic plot
-```{r}
-theme_set(theme_classic())
-```
 
 ```{r}
 # ggplot(base_d,
@@ -318,6 +320,18 @@ lang_meta_d = lang_meta_d %>%
            c("source_game_type", "source_good_color", "source_bad_color", "source_switch_colors", "source_switch_left_right"),
            sep="_",
            extra="merge")
+```
+
+
+```{r}
+ggplot(lang_meta_d %>%
+         filter(meta_task == "switch_colors"),
+       aes(x=epoch, y=value, color=source_game_type, linetype=base_task_toe)) +
+  geom_line(stat="summary",
+            fun.y="mean") +
+  geom_hline(yintercept=0,
+             linetype=2) +
+  facet_grid(run ~ run_type, scales="free")
 ```
 
 # basic plot
@@ -452,8 +466,8 @@ ggplot(lang_d %>%
   guides(color=guide_legend(title=NULL),
          linetype=guide_legend(title=NULL))
 
-ggsave("../../metamapping_paper/figures/grids_language_learning_curves.png", width=4, height=3)
-ggsave("../../../psych/dissertation/4-extending/figures/grids_language_learning_curves.png", width=6, height=4)
+#ggsave("../../metamapping_paper/figures/grids_language_learning_curves.png", width=4, height=3)
+#ggsave("../../../psych/dissertation/4-extending/figures/grids_language_learning_curves.png", width=6, height=4)
 ``` 
 
 
@@ -529,6 +543,22 @@ comparison_d = bind_rows(
     select(-contains("FALSE")) %>%
     mutate(run_type = "Language")  %>%
     rename(pusher=`pusher:TRUE`, pickup=`pickup:TRUE`),
+  lang_meta_d %>%
+    filter(meta_task == "switch_colors",
+           epoch > 50000,
+           run_type %in% c("../language_HoMM_results/language_HoMM_refixed")) %>%
+    group_by(run_type, source_game_type, base_task_toe, run, epoch) %>%
+    summarize(mean_reward = mean(value)) %>%
+    ungroup() %>%
+    unite("game_and_toe", source_game_type, base_task_toe, sep=":") %>%
+    spread(game_and_toe, mean_reward) %>%
+    mutate(above_criterion = ifelse(run_type == "lessplit_wn_one_holdout",
+                                    `pusher:example_is_train` > criterion & `pickup:example_is_train` > criterion,
+                                    `pusher:example_is_train` > tcnh_criterion & `pickup:example_is_train` > tcnh_criterion)) %>%
+    filter(above_criterion) %>%
+    select(-contains("example_is_train")) %>%
+    mutate(run_type = "HoMM\n(from language)") %>%
+    rename(pusher=`pusher:example_is_eval`, pickup=`pickup:example_is_eval`),
   library_meta_d %>%
     filter(meta_task == "switch_colors",
            epoch > 50000,
@@ -632,10 +662,10 @@ lmer(normalized_rewards ~ run_type + target + (1|run),
 
 ```{r}
 g = ggplot(data=comparison_d %>%
-         filter(run_type %in% c("HoMM", "Language")) %>%
+         filter(run_type %in% c("HoMM", "HoMM\n(from language)", "Language")) %>%
          mutate(run_type=factor(run_type, 
-                                levels=c("HoMM", "Language"),
-                                labels=c("HoMM", "Language\ngeneralization"))),
+                                levels=c("HoMM", "HoMM\n(from language)", "Language"),
+                                labels=c("MM\n(ex.)", "MM\n(lang.)", "Lang.\nAlone"))),
        aes(x=target, 
            color=run_type,
            y=normalized_rewards)) +
@@ -651,7 +681,7 @@ g = ggplot(data=comparison_d %>%
              fun.y="mean",
              size=4,
              position=position_dodge(0.5)) +
-  scale_color_manual(values=c("#e41a1c", "#477ec8")) +
+  scale_color_manual(values=c("#e41a1c", "#fec44f", "#02205b")) +
   labs(x="Task", y="Normalized returns (evaluation tasks)") +
   annotate("text", x=0.6, y=0.1, alpha=0.5, label="Chance") +
   annotate("text", x=0.86, y=1.1, alpha=0.5, label="Optimal adaptation") +
@@ -659,15 +689,18 @@ g = ggplot(data=comparison_d %>%
   scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), labels = c("-100%", "-50%", "0%", "50%", "100%")) +
   scale_x_discrete(breaks=c("pickup", "pusher"), labels=c("Pick-up", "Push-off"))
 
-g +
-  guides(color=guide_legend(title=NULL)) #+
-  #theme(legend.position=c(0.85, 0.75)) 
-ggsave("../../../psych/dissertation/4-extending/figures/grids_adaptation_results.png", width=6, height=4)
+#g +
+#  guides(color=guide_legend(title=NULL)) #+
+#  #theme(legend.position=c(0.85, 0.75)) 
+#ggsave("../../../psych/dissertation/4-extending/figures/grids_adaptation_results.png", width=6, height=4)
 
 g +
-  guides(color=F)#guide_legend(title=NULL)) +
-#  theme(legend.position=c(0.85, 0.5)) 
-ggsave("../../metamapping_paper/figures/grids_adaptation.png", width=4, height=3)
+  guides(color=guide_legend(title=NULL)) +
+  theme(legend.position=c(0.9, 0.5),
+        legend.key.height=unit(0.8, "cm"),
+        #legend.background=element_blank(),
+        legend.box.background=element_blank()) 
+ggsave("../../metamapping_paper/figures/grids_adaptation_revised.png", width=4, height=3)
 
 ```
 
@@ -740,7 +773,8 @@ for (this_lang_criterion in c("strict", "loose")) {
     geom_hline(yintercept=-1.,
                alpha=0.5,
                linetype=2) +
-    scale_color_manual(values=c("#e41a1c", "#477ec8")) +
+    #scale_color_manual(values=c("#e41a1c", "#477ec8")) +
+    scale_color_manual(values=c("#e41a1c", "#02205b")) +
     # stat_smooth(aes(group=interaction(run_type, run)),
     #             geom='line',
     #             alpha=0.5,
@@ -751,10 +785,11 @@ for (this_lang_criterion in c("strict", "loose")) {
     scale_x_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), labels = c("-100%", "-50%", "0%", "50%", "100%")) +
     scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), labels = c("-100%", "-50%", "0%", "50%", "100%")) +
     labs(x="Normalized returns on pick-up eval.", y="Normalized returns on push-off eval.") +
-    guides(color=guide_legend(title=NULL)) +
+    guides(color=guide_legend(title=NULL, override.aes=list(fill="#ffffff"))) +
+    #guides(color=guide_legend(title=NULL)) +
     theme(legend.position=c(0.85, 0.25)) 
   ggsave(sprintf("../../metamapping_paper/figures/grids_adaptation_correlation_%s.png", this_lang_criterion), width=4, height=3)
-  ggsave(sprintf("../../../psych/dissertation/4-extending/figures/grids_adaptation_correlation_%s.png", this_lang_criterion), width=6, height=4)
+  #ggsave(sprintf("../../../psych/dissertation/4-extending/figures/grids_adaptation_correlation_%s.png", this_lang_criterion), width=6, height=4)
 }
 ```
 
@@ -770,7 +805,8 @@ ggplot(perf_corr_d,
   geom_hline(yintercept=-1.,
              alpha=0.5,
              linetype=2) +
-  scale_color_manual(values=c("#e41a1c", "#477ec8")) +
+  scale_color_manual(values=c("#e41a1c", "#02205b")) +
+  #scale_color_manual(values=c("#e41a1c", "#477ec8")) +
   # stat_smooth(aes(group=interaction(run_type, run)),
   #             geom='line',
   #             alpha=0.5,
@@ -782,10 +818,10 @@ ggplot(perf_corr_d,
   scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), labels = c("-100%", "-50%", "0%", "50%", "100%")) +
   labs(x="Normalized returns on pick-up evaluation", y="Normalized returns on push-off evaluation") +
   facet_wrap(~ run) +
-  guides(color=guide_legend(title=NULL)) +
+  guides(color=guide_legend(title=NULL, override.aes=list(fill="#ffffff"))) +
   theme(legend.position=c(0.85, 0.25)) 
 ggsave("../../metamapping_paper/figures/grids_adaptation_correlation_loose_by_run.png", width=8, height=5)
-ggsave("../../../psych/dissertation/4-extending/figures/grids_adaptation_correlation_loose_by_run.png", width=8, height=5)
+#ggsave("../../../psych/dissertation/4-extending/figures/grids_adaptation_correlation_loose_by_run.png", width=8, height=5)
 ```
 ### statistics
 
@@ -872,7 +908,7 @@ eval_d = eval_d %>%
 ggplot(data=eval_d %>%
          mutate(base_task_toe=factor(base_task_toe,
                                      levels=c("example_is_train", "example_is_eval"),
-                                     labels=c("Trained examples", "Held-out examples"))) %>%
+                                     labels=c("Trained tasks", "Held-out tasks"))) %>%
          group_by(run, source_game_type, base_task_toe) %>%
          summarize(mean_steps = mean(mean_steps)),
        
@@ -895,7 +931,7 @@ ggplot(data=eval_d %>%
   guides(color=guide_legend(title=NULL)) +
   theme(legend.position=c(0.25, 0.9)) 
 ggsave("../../metamapping_paper/figures/grids_behavioral_uncertainty.png", width=4, height=3)
-ggsave("../../../psych/dissertation/4-extending/figures/grids_behavioral_uncertainty.png", width=4, height=3)
+#ggsave("../../../psych/dissertation/4-extending/figures/grids_behavioral_uncertainty.png", width=4, height=3)
 ```
 
 ```{r}
