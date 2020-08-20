@@ -493,7 +493,7 @@ g = ggplot(data=comparison_d %>%
          filter(run_type %in% c("HoMM", "Language")) %>%
          mutate(run_type=factor(run_type, 
                                 levels=c("HoMM", "Language"),
-                                labels=c("HoMM", "Language\ngeneralization"))),
+                                labels=c("Meta-mapping\n(from examples)", "Language\ngeneralization"))),
        aes(x=game_type, 
            color=run_type,
            y=normalized_rewards)) +
@@ -509,7 +509,8 @@ g = ggplot(data=comparison_d %>%
              fun.y="mean",
              size=4,
              position=position_dodge(0.5)) +
-  scale_color_manual(values=c("#e41a1c", "#477ec8")) +
+  #scale_color_manual(values=c("#e41a1c", "#477ec8")) +
+  scale_color_manual(values=c("#e41a1c", "#02205b")) +
   labs(x="Task type", y="Normalized returns (evaluation)") +
   scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), labels = c("-100%", "-50%", "0%", "50%", "100%")) +
   scale_x_discrete(breaks=c("pickup", "pusher"), labels=c("Pick-up", "Push-off")) +
@@ -521,11 +522,11 @@ g +
   annotate("text", x=0.86, y=1.1, alpha=0.5, label="Optimal adaptation") +
   annotate("text", x=0.75, y=-1.1, alpha=0.5, label="No adaptation") 
 ggsave("../../metamapping_paper/figures/grids_color_to_shape_generalization.png", width=4, height=3)
-g + 
-  annotate("text", x=0.53, y=0.1, alpha=0.5, label="Chance") +
-  annotate("text", x=0.69, y=1.1, alpha=0.5, label="Optimal adaptation") +
-  annotate("text", x=0.63, y=-1.1, alpha=0.5, label="No adaptation") 
-ggsave("../../../psych/dissertation/4-extending/figures/grids_color_to_shape_generalization.png", width=6, height=4)
+# g + 
+#   annotate("text", x=0.53, y=0.1, alpha=0.5, label="Chance") +
+#   annotate("text", x=0.69, y=1.1, alpha=0.5, label="Optimal adaptation") +
+#   annotate("text", x=0.63, y=-1.1, alpha=0.5, label="No adaptation") 
+# ggsave("../../../psych/dissertation/4-extending/figures/grids_color_to_shape_generalization.png", width=6, height=4)
 ```
 
 ```{r}
