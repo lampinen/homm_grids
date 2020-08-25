@@ -19,7 +19,7 @@ theme_set(theme_classic())
 
 results_dir = "../results/grids_final/"
 
-language_homm_results_subdirs = c("../language_HoMM_results/language_HoMM_refixed")
+language_homm_results_subdirs = c("../language_HoMM_results/language_HoMM_refixed") # fixed two bugs in language HoMM x RL
 #language_homm_results_subdirs = c("lessplit_wn_one_holdout/language_HoMM")
 
 language_results_subdirs = c("lessplit_wn_one_holdout/language")
@@ -466,7 +466,7 @@ ggplot(lang_d %>%
   guides(color=guide_legend(title=NULL),
          linetype=guide_legend(title=NULL))
 
-#ggsave("../../metamapping_paper/figures/grids_language_learning_curves.png", width=4, height=3)
+ggsave("../../metamapping_paper/figures/grids_language_learning_curves.pdf", width=4, height=3)
 #ggsave("../../../psych/dissertation/4-extending/figures/grids_language_learning_curves.png", width=6, height=4)
 ``` 
 
@@ -652,10 +652,24 @@ perm_mean_diff_test(
 
 ```{r}
 lmer(normalized_rewards ~ run_type + target + (1|run),
-     comparison_d) %>%
+     comparison_d %>%
+       filter(run_type != "HoMM_tcnh")) %>%
   summary()
 ```
 
+```{r}
+lmer(normalized_rewards ~ run_type * target + (1|run),
+     comparison_d %>%
+       filter(run_type != "HoMM_tcnh")) %>%
+  summary()
+```
+
+```{r}
+lmer(normalized_rewards ~ run_type * target + (1|run),
+     comparison_d %>%
+       filter(run_type %in% c("HoMM", "HoMM\n(from language)"))) %>%
+  summary()
+```
 
 ## and a plot
 
@@ -700,7 +714,7 @@ g +
         legend.key.height=unit(0.8, "cm"),
         #legend.background=element_blank(),
         legend.box.background=element_blank()) 
-ggsave("../../metamapping_paper/figures/grids_adaptation_revised.png", width=4, height=3)
+ggsave("../../metamapping_paper/figures/grids_adaptation_revised.pdf", width=4, height=3)
 
 ```
 
@@ -759,8 +773,9 @@ for (this_lang_criterion in c("strict", "loose")) {
     select(-contains("example_is_train")) %>%
     rename(pickup=`pickup:example_is_eval`,
            pusher=`pusher:example_is_eval`) %>%
-    mutate(run_type = "HoMM")
-  )
+    mutate(run_type = "MM\n(ex.)")
+  ) %>%
+    mutate(run_type = factor(run_type, levels=c("MM\n(ex.)", "Language")))
   
   ggplot(perf_corr_d,
          aes(x=pickup/4., y=pusher/4., color=run_type)) +
@@ -788,7 +803,7 @@ for (this_lang_criterion in c("strict", "loose")) {
     guides(color=guide_legend(title=NULL, override.aes=list(fill="#ffffff"))) +
     #guides(color=guide_legend(title=NULL)) +
     theme(legend.position=c(0.85, 0.25)) 
-  ggsave(sprintf("../../metamapping_paper/figures/grids_adaptation_correlation_%s.png", this_lang_criterion), width=4, height=3)
+  ggsave(sprintf("../../metamapping_paper/figures/grids_adaptation_correlation_%s.pdf", this_lang_criterion), width=4, height=3)
   #ggsave(sprintf("../../../psych/dissertation/4-extending/figures/grids_adaptation_correlation_%s.png", this_lang_criterion), width=6, height=4)
 }
 ```
@@ -820,7 +835,7 @@ ggplot(perf_corr_d,
   facet_wrap(~ run) +
   guides(color=guide_legend(title=NULL, override.aes=list(fill="#ffffff"))) +
   theme(legend.position=c(0.85, 0.25)) 
-ggsave("../../metamapping_paper/figures/grids_adaptation_correlation_loose_by_run.png", width=8, height=5)
+ggsave("../../metamapping_paper/figures/grids_adaptation_correlation_loose_by_run.pdf", width=8, height=5)
 #ggsave("../../../psych/dissertation/4-extending/figures/grids_adaptation_correlation_loose_by_run.png", width=8, height=5)
 ```
 ### statistics
@@ -829,7 +844,7 @@ ggsave("../../metamapping_paper/figures/grids_adaptation_correlation_loose_by_ru
 lmer(pusher ~ pickup * run_type + scale(epoch) + (1 + pickup |run),
      data=perf_corr_d %>%
        mutate(run_type = factor(run_type, 
-                                levels=c("Language", "HoMM")))) %>%
+                                levels=c("Language", "MM\n(ex.)")))) %>%
   summary()
 ```
 
@@ -839,7 +854,7 @@ cor.test(~ pusher + pickup,
            filter(run_type == "Language"))
 cor.test(~ pusher + pickup,
          perf_corr_d %>%
-           filter(run_type == "HoMM"))
+           filter(run_type == "MM\n(ex.)"))
 ```
 
 # tcnh comparison
@@ -876,8 +891,8 @@ ggplot(data=comparison_d %>%
   scale_x_discrete(breaks=c("pickup", "pusher"), labels=c("Pick-up", "Push-off")) +
   guides(color=guide_legend(title=NULL)) +
   theme(legend.position=c(0.8, 0.25)) 
-ggsave("../../metamapping_paper/figures/grids_hyper_vs_tcnh.png", width=4, height=3)
-ggsave("../../../psych/dissertation/4-extending/figures/grids_hyper_vs_tcnh.png", width=6, height=4)
+ggsave("../../metamapping_paper/figures/grids_hyper_vs_tcnh.pdf", width=4, height=3)
+#ggsave("../../../psych/dissertation/4-extending/figures/grids_hyper_vs_tcnh.png", width=6, height=4)
 ```
 
 
@@ -930,7 +945,7 @@ ggplot(data=eval_d %>%
   scale_y_continuous(breaks=c(25, 50, 75, 100, 125)) +
   guides(color=guide_legend(title=NULL)) +
   theme(legend.position=c(0.25, 0.9)) 
-ggsave("../../metamapping_paper/figures/grids_behavioral_uncertainty.png", width=4, height=3)
+ggsave("../../metamapping_paper/figures/grids_behavioral_uncertainty.pdf", width=4, height=3)
 #ggsave("../../../psych/dissertation/4-extending/figures/grids_behavioral_uncertainty.png", width=4, height=3)
 ```
 
@@ -967,6 +982,6 @@ ggplot(data=eval_d %>%
   scale_y_continuous(breaks=c(0, 25, 50, 75, 100), limits=c(0, 100)) +
   guides(color=guide_legend(title=NULL)) +
   theme(legend.position=c(0.2, 0.2))
-ggsave("../../metamapping_paper/figures/grids_behavioral_uncertainty_by_score_diff.png", width=4, height=3)
-ggsave("../../../psych/dissertation/4-extending/figures/grids_behavioral_uncertainty_by_score_diff.png", width=4, height=3)
+ggsave("../../metamapping_paper/figures/grids_behavioral_uncertainty_by_score_diff.pdf", width=4, height=3)
+#ggsave("../../../psych/dissertation/4-extending/figures/grids_behavioral_uncertainty_by_score_diff.png", width=4, height=3)
 ```
