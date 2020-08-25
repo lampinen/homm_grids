@@ -13,7 +13,7 @@ import meta_tasks
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir": "/mnt/fs4/lampinen/grids_color_and_shape_with_pusher_distinguishable_shape_test/qm/",
+    "output_dir": "/mnt/fs4/lampinen/grids_color_and_shape_with_pusher_distinguishable_shape_test/",
 
     "run_offset": 0,
     "num_runs": 1,
@@ -62,7 +62,7 @@ run_config.update({
     "softmax_policy": True,
 
     "init_learning_rate": 1e-4,
-    "init_meta_learning_rate": 3e-4,
+    "init_meta_learning_rate": 1e-4,
 
     "lr_decay": 0.8,
     "meta_lr_decay": 0.95,
@@ -148,7 +148,7 @@ if False:  # enable for language baseline
 
 if False:  # enable for language base + meta 
     run_config.update({
-        "output_dir": run_config["output_dir"] + "language_HoMM/",
+        "output_dir": run_config["output_dir"] + "language_HoMM_refixed/",
 
         "train_language_base": True,
         "train_language_meta": True,
@@ -156,16 +156,18 @@ if False:  # enable for language base + meta
         "train_meta": False,
 
         "vocab": ["PAD"] + ["switch", "colors"] + ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()) + grid_tasks.BASE_SHAPES,
-        "persistent_task_reps": False,
 
         "init_language_learning_rate": 3e-5,
-        "init_language_meta_learning_rate": 3e-5,
+        "init_language_meta_learning_rate": 3e-6,
+        "min_language_meta_learning_rate": 1e-7,
+        "language_meta_lr_decay": 0.95,
         #"eval_every": 500,  # things change faster with language
         #"update_target_network_every": 5000,
     })
 
     architecture_config.update({
         "max_sentence_len": 7,
+        "persistent_task_reps": False,
     })
 
 
