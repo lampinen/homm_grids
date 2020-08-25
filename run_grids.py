@@ -155,7 +155,7 @@ if False:  # enable for language base + meta
         "train_base": False,
         "train_meta": False,
 
-        "vocab": ["PAD"] + ["switch", "colors"] + ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()) + grid_tasks.BASE_SHAPES,
+        "vocab": ["PAD"] + ["switch", "good", "bad"] + ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()) + grid_tasks.BASE_SHAPES,
 
         "init_language_learning_rate": 3e-5,
         "init_language_meta_learning_rate": 3e-6,
