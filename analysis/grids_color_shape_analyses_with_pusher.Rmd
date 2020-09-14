@@ -18,10 +18,9 @@ library(lmerTest)
 # library_results_subdirs = c(".")
 #hold_out_regex = "tee_True"  # NOTE: we assume hold outs are the same across runs
 
-language_homm_results_subdirs = c()
-
 results_dir = "../results/grids_color_and_shape_with_pusher_distinguishable_shape_test/"
 language_results_subdirs = c("language")
+language_homm_results_subdirs = c("language_HoMM_refixed")
 library_results_subdirs = c(".", "qm")
 hold_out_regex = "triangle_True"  # NOTE: we assume hold outs are the same across runs
 
@@ -272,7 +271,7 @@ library_meta_d = load_d(results_dir, library_results_subdirs, num_runs, T, "meta
 ```
 
 ```{r}
-#lang_meta_d = load_d(results_dir, language_homm_results_subdirs, num_runs, T, "language_meta_true_losses")
+lang_meta_d = load_d(results_dir, language_homm_results_subdirs, num_runs, T, "language_meta_true_losses")
 ```
 
 ```{r}
@@ -317,20 +316,22 @@ library_meta_d = library_meta_d %>%
 ```
 
 ```{r}
-# lang_meta_d = lang_meta_d %>%
-#   gather(meta_data_point, value, -epoch, -run_type, -run) %>%
-#   separate(meta_data_point, 
-#            c("meta_task", "meta_mapping_toe", "base_task_toe", "source", "target"),
-#            sep=":|->",
-#            extra="merge") %>%
-#   mutate(eval = grepl("\\[eval\\]", meta_task),
-#          meta_task = sub("\\[eval\\]", "", meta_task)) %>%
-#   mutate(source=sub("pick_up", "pickup", source),
-#          source=sub("sequence_imitation", "sequenceimitation", source)) %>%
-#   separate(source, 
-#            c("source_game_type", "source_good_color_object", "source_bad_color_object", "source_switch_good_and_bad", "source_switch_left_right"),
-#            sep="_",
-#            extra="merge")
+lang_meta_d = lang_meta_d %>%
+  gather(meta_data_point, value, -epoch, -run_type, -run) %>%
+  separate(meta_data_point, 
+           c("meta_task", "meta_mapping_toe", "base_task_toe", "source", "target"),
+           sep=":|->",
+           extra="merge") %>%
+  mutate(eval = grepl("\\[eval\\]", meta_task),
+         meta_task = sub("\\[eval\\]", "", meta_task),
+         source_is_eval = check_if_eval(source)) %>%
+  mutate(source=sub("pick_up", "pickup", source),
+         source=sub("sequence_imitation", "sequenceimitation", source),
+         source=fix_names(source)) %>%
+  separate(source, 
+           c("source_game_type", "source_good_color_object", "source_bad_color_object", "source_switch_good_and_bad", "source_switch_left_right"),
+           sep="_",
+           extra="merge")
 ```
 
 # basic plot
@@ -346,6 +347,16 @@ ggplot(library_meta_d %>%
   facet_grid(run ~ run_type, scales="free")
 ```
 
+```{r}
+ggplot(lang_meta_d %>%
+         filter(meta_task == "switch_good_bad"),
+       aes(x=epoch, y=value, color=source_game_type, linetype=base_task_toe)) +
+  geom_line(stat="summary",
+            fun.y="mean") +
+  geom_hline(yintercept=0,
+             linetype=2) +
+  facet_grid(run ~ run_type, scales="free")
+```
 # language baselines
 
 ```{r}
@@ -390,7 +401,21 @@ comparison_d = bind_rows(
     spread(game_and_toe, mean_reward) %>%
     filter_at(vars(contains("example_is_train")), all_vars(. > criterion)) %>%
     select(-contains("example_is_train"), -switch_good_and_bad_mapping_loss) %>%
-    mutate(run_type = "HoMM") %>%
+    mutate(run_type = "MM\n(ex.)") %>%
+    rename_at(vars(contains("example_is_eval")), function(x) {gsub(":example_is_eval", "", x)}),
+  lang_meta_d %>%
+    filter(meta_task == "switch_good_bad",
+           #epoch > 50000,
+           epoch < 300000,
+           run_type == "language_HoMM_refixed") %>%
+    group_by(run_type, source_game_type, source_good_color_object, base_task_toe, run, epoch) %>%
+    summarize(mean_reward = mean(value)) %>%
+    ungroup() %>%
+    unite("game_and_toe", source_game_type, source_good_color_object, base_task_toe, sep=":") %>%
+    spread(game_and_toe, mean_reward) %>%
+    filter_at(vars(contains("example_is_train")), all_vars(. > criterion)) %>%
+    select(-contains("example_is_train")) %>%
+    mutate(run_type = "MM\n(lang.)") %>%
     rename_at(vars(contains("example_is_eval")), function(x) {gsub(":example_is_eval", "", x)}),
 ) %>%
   gather(game_type_and_obj, mean_rewards, -run, -run_type, -epoch) %>%
@@ -441,7 +466,15 @@ perm_mean_diff_test = function(x, y, alpha=0.05) {
 set.seed(0)  # reproducibility
 perm_mean_diff_test(
   comparison_d %>%
-    filter(run_type == "HoMM") %>%
+    filter(run_type == "MM\n(ex.)") %>%
+    pull(normalized_rewards),
+  comparison_d %>%
+    filter(run_type == "Language") %>%
+    pull(normalized_rewards)
+)
+perm_mean_diff_test(
+  comparison_d %>%
+    filter(run_type == "MM\n(lang.)") %>%
     pull(normalized_rewards),
   comparison_d %>%
     filter(run_type == "Language") %>%
@@ -457,8 +490,9 @@ lmer(normalized_rewards ~ factor_run_type + (1|run),
 
 
 ```{r}
-lmer(normalized_rewards ~ factor_run_type * game_type + (1 |run),
-     comparison_d) %>%
+main_model = lmer(normalized_rewards ~ factor_run_type * game_type + (1 |run),
+     comparison_d) 
+main_model %>%
   summary()
 ```
 
@@ -476,24 +510,16 @@ lmer(normalized_rewards ~ game_type + (1|run),
   summary()
 ```
 
-```{r}
-old_contrasts = contrasts(comparison_d$factor_run_type)
-contrasts(comparison_d$factor_run_type) = cbind(HoMM=c(1, 0))
-lmer(normalized_rewards ~ factor_run_type + (1|run),
-     comparison_d) %>%
-  summary()
-contrasts(comparison_d$factor_run_type) = old_contrasts
-```
 
 ## and a plot
 
 
 ```{r}
 g = ggplot(data=comparison_d %>%
-         filter(run_type %in% c("HoMM", "Language")) %>%
+         filter(run_type %in% c("MM\n(ex.)", "MM\n(lang.)", "Language")) %>%
          mutate(run_type=factor(run_type, 
-                                levels=c("HoMM", "Language"),
-                                labels=c("Meta-mapping\n(from examples)", "Language\ngeneralization"))),
+                                levels=c("MM\n(ex.)", "MM\n(lang.)", "Language"),
+                                labels=c("Meta-mapping\n(from examples)", "Meta-mapping\n(from language)", "Language\nalone"))),
        aes(x=game_type, 
            color=run_type,
            y=normalized_rewards)) +
@@ -510,12 +536,14 @@ g = ggplot(data=comparison_d %>%
              size=4,
              position=position_dodge(0.5)) +
   #scale_color_manual(values=c("#e41a1c", "#477ec8")) +
-  scale_color_manual(values=c("#e41a1c", "#02205b")) +
+  #scale_color_manual(values=c("#e41a1c", "#02205b")) +
+  scale_color_manual(values=c("#e41a1c", "#fec44f", "#02205b")) +
   labs(x="Task type", y="Normalized returns (evaluation)") +
   scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), labels = c("-100%", "-50%", "0%", "50%", "100%")) +
   scale_x_discrete(breaks=c("pickup", "pusher"), labels=c("Pick-up", "Push-off")) +
   guides(color=guide_legend(title=NULL)) +
-  theme(legend.position=c(0.85, 0.25)) 
+  theme(legend.position=c(0.8, 0.3),
+        legend.margin=margin(0,0,0,0)) 
 
 g + 
   annotate("text", x=0.6, y=0.1, alpha=0.5, label="Chance") +
