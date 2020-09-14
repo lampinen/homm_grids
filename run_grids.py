@@ -158,7 +158,7 @@ if False:  # enable for language base + meta
         "vocab": ["PAD"] + ["switch", "good", "bad"] + ["pickup", "pusher"] + ["True", "False"] + list(grid_tasks.BASE_COLOURS.keys()) + grid_tasks.BASE_SHAPES,
 
         "init_language_learning_rate": 3e-5,
-        "init_language_meta_learning_rate": 3e-6,
+        "init_language_meta_learning_rate": 1e-5,
         "min_language_meta_learning_rate": 1e-7,
         "language_meta_lr_decay": 0.95,
         #"eval_every": 500,  # things change faster with language
