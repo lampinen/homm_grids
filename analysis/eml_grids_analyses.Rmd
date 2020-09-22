@@ -693,15 +693,16 @@ g = ggplot(data=comparison_d %>%
                 position=position_dodge(0.5)) +
   geom_point(stat="summary",
              fun.y="mean",
-             size=4,
+             size=3,
              position=position_dodge(0.5)) +
-  scale_color_manual(values=c("#e41a1c", "#fec44f", "#02205b")) +
+  #scale_color_manual(values=c("#e41a1c", "#fec44f", "#02205b")) +
+  scale_color_manual(values=c("#f55784", "#7e0146", "#158035")) +
   labs(x="Task", y="Normalized returns (evaluation tasks)") +
-  annotate("text", x=0.6, y=0.1, alpha=0.5, label="Chance") +
-  annotate("text", x=0.86, y=1.1, alpha=0.5, label="Optimal adaptation") +
-  annotate("text", x=0.75, y=-1.1, alpha=0.5, label="No adaptation") +
+  annotate("text", x=0.48, y=0.1, alpha=0.5, label="Chance") +
+  annotate("text", x=0.83, y=1.1, alpha=0.5, label="Optimal adaptation") +
+  annotate("text", x=0.69, y=-1.1, alpha=0.5, label="No adaptation") +
   scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), labels = c("-100%", "-50%", "0%", "50%", "100%")) +
-  scale_x_discrete(breaks=c("pickup", "pusher"), labels=c("Pick-up", "Push-off"))
+  scale_x_discrete(breaks=c("pickup", "pusher"), labels=c("Pick-up", "Push-off"), expand=expansion(add=c(0.8, 1.2)))
 
 #g +
 #  guides(color=guide_legend(title=NULL)) #+
@@ -710,10 +711,12 @@ g = ggplot(data=comparison_d %>%
 
 g +
   guides(color=guide_legend(title=NULL)) +
-  theme(legend.position=c(0.9, 0.5),
+  theme(legend.position=c(0.9, 0.515),
         legend.key.height=unit(0.8, "cm"),
         #legend.background=element_blank(),
+        legend.box.margin=margin(0, 0, 0, 0),
         legend.box.background=element_blank()) 
+ggsave("../../metamapping_paper/figures/grids_adaptation_revised_color_test.png", width=4, height=3)
 ggsave("../../metamapping_paper/figures/grids_adaptation_revised.pdf", width=4, height=3)
 
 ```
@@ -789,7 +792,7 @@ for (this_lang_criterion in c("strict", "loose")) {
                alpha=0.5,
                linetype=2) +
     #scale_color_manual(values=c("#e41a1c", "#477ec8")) +
-    scale_color_manual(values=c("#e41a1c", "#02205b")) +
+    scale_color_manual(values=c("#f55784", "#158035")) +
     # stat_smooth(aes(group=interaction(run_type, run)),
     #             geom='line',
     #             alpha=0.5,
@@ -820,7 +823,8 @@ ggplot(perf_corr_d,
   geom_hline(yintercept=-1.,
              alpha=0.5,
              linetype=2) +
-  scale_color_manual(values=c("#e41a1c", "#02205b")) +
+  #scale_color_manual(values=c("#e41a1c", "#02205b")) +
+  scale_color_manual(values=c("#f55784", "#158035")) +
   #scale_color_manual(values=c("#e41a1c", "#477ec8")) +
   # stat_smooth(aes(group=interaction(run_type, run)),
   #             geom='line',

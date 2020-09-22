@@ -537,7 +537,8 @@ g = ggplot(data=comparison_d %>%
              position=position_dodge(0.5)) +
   #scale_color_manual(values=c("#e41a1c", "#477ec8")) +
   #scale_color_manual(values=c("#e41a1c", "#02205b")) +
-  scale_color_manual(values=c("#e41a1c", "#fec44f", "#02205b")) +
+  #scale_color_manual(values=c("#e41a1c", "#fec44f", "#02205b")) +
+  scale_color_manual(values=c("#f55784", "#7e0146", "#158035")) +
   labs(x="Task type", y="Normalized returns (evaluation)") +
   scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), labels = c("-100%", "-50%", "0%", "50%", "100%")) +
   scale_x_discrete(breaks=c("pickup", "pusher"), labels=c("Pick-up", "Push-off")) +
