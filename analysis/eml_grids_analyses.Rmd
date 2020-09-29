@@ -660,7 +660,7 @@ lmer(normalized_rewards ~ run_type + target + (1|run),
 ```{r}
 lmer(normalized_rewards ~ run_type * target + (1|run),
      comparison_d %>%
-       filter(run_type != "HoMM_tcnh")) %>%
+       filter(!run_type %in% c("HoMM_tcnh", "LanguageMMLanguageAlone"))) %>%
   summary()
 ```
 
@@ -735,11 +735,37 @@ comparison_d %>%
 ```
 
 ```{r}
+set.seed(0) # reproducibility
+comparison_d %>%
+  group_by(run_type) %>%
+  do(results1=mean_cl_boot(.$normalized_rewards)) %>%
+  mutate(performance=results1$y,
+         performance95min=results1$ymin,
+         performance95max=results1$ymax,
+            )
+```
+
+```{r}
 lmer(normalized_rewards ~ run_type + target + (1|run),
      data=comparison_d) %>%
   summary()
 ```
 
+```{r}
+lmer(normalized_rewards ~ run_type + target + (1|run),
+     data=comparison_d %>%
+       filter(run_type != "HoMM_tcnh") %>%
+       mutate(run_type = factor(run_type, levels=c("Language", "LanguageMMLanguageAlone", "HoMM", "HoMM\n(from language)")))) %>%
+  summary()
+```
+
+```{r}
+lmer(normalized_rewards ~ run_type * target + (1|run),
+     data=comparison_d %>%
+       filter(run_type != "HoMM_tcnh") %>%
+       mutate(run_type = factor(run_type, levels=c("Language", "LanguageMMLanguageAlone", "HoMM", "HoMM\n(from language)")))) %>%
+  summary()
+```
 
 ## Performance more correlated with MM
 
