@@ -12,12 +12,6 @@ library(lmerTest)
 ```
 
 ```{r}
-# 
-# results_dir = "../results/grids_color_and_shape/"
-# language_results_subdirs = c("language")
-# library_results_subdirs = c(".")
-#hold_out_regex = "tee_True"  # NOTE: we assume hold outs are the same across runs
-
 results_dir = "../results/grids_color_and_shape_with_pusher_distinguishable_shape_test/"
 language_results_subdirs = c("language")
 language_homm_results_subdirs = c("language_HoMM_refixed")
@@ -84,29 +78,7 @@ load_d = function(results_dir, result_subdirs, num_runs, with_library, file_type
 }
 ```
 
-
-# config loading
-
-```{r}
-# config_d = load_d(results_dir, result_subdirs, F, F, "config")
-# config_d = bind_rows(config_d,
-#                      load_d(results_dir, newer_results_subdirs, num_runs, F, "config"))
-```
-
-```{r}
-# config_d = config_d %>% 
-#   rowwise() %>% 
-#   mutate(hold_outs = list(sub("sequence_imitation", "sequenceimitation", sub("pick_up", "pickup",hold_outs)))) %>%
-#   ungroup() 
-```
-
 # base data loading
-
-```{r}
-# base_d = load_d(results_dir, result_subdirs, F, F, "base_losses")
-# base_d = bind_rows(base_d,
-#                    load_d(results_dir, newer_results_subdirs, num_runs, F, "base_losses"))
-```
 
 ```{r}
 lang_d = load_d(results_dir, language_results_subdirs, num_runs, T, "language_losses")
@@ -114,19 +86,6 @@ lang_d = load_d(results_dir, language_results_subdirs, num_runs, T, "language_lo
 
 ```{r}
 library_base_d = load_d(results_dir, library_results_subdirs, num_runs, T, "losses")
-```
-
-```{r}
-# base_d = base_d %>%
-#   gather(environment_and_metric, value, -epoch, -run_type, -run) %>%
-#   mutate(environment_and_metric=sub("pick_up", "pickup", environment_and_metric),
-#          environment_and_metric=sub("sequence_imitation", "sequenceimitation", environment_and_metric)) %>%
-#   separate(environment_and_metric,
-#            c("game_type", "good_color_object", "bad_color_object", "switch_good_and_bad", "switch_left_right", "metric"),
-#            sep="_",
-#            extra="merge") %>%
-#   spread(metric, value) %>%
-#   mutate(environment_name = paste(game_type, good_color_object, bad_color_object, switch_good_and_bad, switch_left_right, sep="_"))
 ```
 
 ```{r}
@@ -170,22 +129,9 @@ library_base_d = library_base_d %>%
 ```
 
 ```{r}
-# check_if_eval = function(environment_name, this_run_type) {
-#   these_hold_outs = config_d %>% 
-#     filter(run_type == this_run_type) %>% 
-#     pull(hold_outs) %>%
-#     unlist()
-#   return(environment_name %in% these_hold_outs)
-# }
-
 check_if_eval = function(environment_name){
   grepl(hold_out_regex, environment_name) 
 }
-```
-
-```{r}
-# base_d = base_d %>% 
-#   mutate(eval = grepl(hold_out_regex, environment_name))
 ```
 
 ```{r}
@@ -203,29 +149,6 @@ library_base_d = library_base_d %>%
 theme_set(theme_classic())
 ```
 
-```{r}
-# ggplot(base_d,
-#        aes(x=epoch, y=returns_mean, color=game_type, linetype=eval)) +
-#   geom_line(stat="summary",
-#             fun.y="mean") +
-#   geom_hline(yintercept=0,
-#              linetype=2) +
-#   facet_wrap(~ run_type, scales = "free")
-```
-
-```{r}
-# ggplot(base_d,
-#        aes(x=epoch, y=returns_mean, color=game_type, linetype=eval)) +
-#   geom_line(stat="summary",
-#             fun.y="mean") +
-#   geom_hline(yintercept=0,
-#              linetype=2)+
-#   geom_hline(yintercept=4,
-#              linetype=3) +
-#   labs(y="Meta-learning average return") +
-#   facet_grid(run_type~run)
-# #ggsave("plots/basic_meta_learning.png")
-```
 
 ```{r}
 ggplot(library_base_d,
@@ -241,30 +164,7 @@ ggplot(library_base_d,
 #ggsave("plots/basic_meta_learning.png")
 ```
 
-```{r}
-# ggplot(base_d %>% 
-#          filter(game_type == "shooter"),
-#        aes(x=epoch, y=returns_mean, linetype=eval)) +
-#   geom_line(stat="summary",
-#             fun.y="mean") +
-#   facet_wrap(~ run_type, scales = "free")
-```
-
-```{r}
-# ggplot(base_d,
-#        aes(x=epoch, y=steps_mean, color=game_type, linetype=eval)) +
-#   geom_line(stat="summary",
-#             fun.y="mean") +
-#   facet_wrap(~ run_type, scales = "free")
-```
-
 # meta data loading
-
-```{r}
-# meta_d = load_d(results_dir, result_subdirs, F, F, "meta_true_losses")
-# meta_d = bind_rows(meta_d,
-#                    load_d(results_dir, newer_results_subdirs, num_runs, F, "meta_true_losses"))
-```
 
 ```{r}
 library_meta_d = load_d(results_dir, library_results_subdirs, num_runs, T, "meta_true_losses")
@@ -272,27 +172,6 @@ library_meta_d = load_d(results_dir, library_results_subdirs, num_runs, T, "meta
 
 ```{r}
 lang_meta_d = load_d(results_dir, language_homm_results_subdirs, num_runs, T, "language_meta_true_losses")
-```
-
-```{r}
-# meta_d = meta_d %>%
-#   gather(meta_data_point, value, -epoch, -run_type, -run) %>%
-#   separate(meta_data_point,
-#            c("meta_task", "source", "target_and_metric"),
-#            sep=":|->",
-#            extra="merge") %>%
-#   mutate(metric = str_extract(target_and_metric, "(steps|returns)_(mean|se)$"),
-#          target = sub("(steps|returns)_(mean|se)$", "", target_and_metric)) %>%
-#   spread(metric, value) %>%
-#   mutate(eval = grepl("\\[eval\\]", meta_task),
-#          meta_task = sub("\\[eval\\]", "", meta_task),
-#          source_is_eval = check_if_eval(source)) %>%
-#   mutate(source=sub("pick_up", "pickup", source),
-#          source=sub("sequence_imitation", "sequenceimitation", source)) %>%
-#   separate(source,
-#            c("source_game_type", "source_good_color_object", "source_bad_color_object", "source_switch_good_and_bad", "source_switch_left_right"),
-#            sep="_",
-#            extra="merge")
 ```
 
 ```{r}
